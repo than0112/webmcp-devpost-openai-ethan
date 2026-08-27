@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { LostItem } from "../types/item";
 import type { InvestigationSession } from "../types/investigation";
 import { createWebMCPTools, type WebMCPCallbacks } from "../lib/webmcp-tools";
@@ -21,5 +21,10 @@ export function useWebMCP(items: LostItem[], callbacks: WebMCPCallbacks) {
     return () => controller.abort();
   }, [callbacks, items]);
 
-  return supported;
+  const reset = useCallback(() => {
+    sessionRef.current = null;
+    callbacks.onInvestigation?.(null);
+  }, [callbacks]);
+
+  return { supported, reset };
 }

@@ -94,3 +94,8 @@ export function rankItems(items: LostItem[], input: SearchInput, options: { stri
 export function searchItems(items: LostItem[], input: SearchInput): LostItem[] {
   return rankItems(items, input).map((result) => result.item);
 }
+
+export function selectRelevantResults(results: SearchResult[]) {
+  const relevanceFloor = results[0] ? Math.max(0.4, results[0].confidence * 0.55) : 0;
+  return results.filter((result) => result.confidence >= relevanceFloor);
+}

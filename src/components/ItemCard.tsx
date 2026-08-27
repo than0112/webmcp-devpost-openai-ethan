@@ -3,9 +3,10 @@ import type { LostItem } from "../types/item";
 
 const date = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
 
-export function ItemCard({ item, highlighted, onOpen }: { item: LostItem; highlighted: boolean; onOpen: () => void }) {
+export function ItemCard({ item, highlighted, candidateState, onOpen }: { item: LostItem; highlighted: boolean; candidateState?: "candidate" | "dimmed" | "best"; onOpen: () => void }) {
+  const classes = ["item-card", highlighted ? "highlighted" : "", candidateState ? `candidate-${candidateState}` : ""].filter(Boolean).join(" ");
   return (
-    <article id={item.id} className={highlighted ? "item-card highlighted" : "item-card"}>
+    <article id={item.id} className={classes}>
       <button className="card-hit-area" onClick={onOpen} aria-label={`View ${item.name}`}>
         <span className="item-id">{item.id}</span>
         <div className="item-image"><img src={item.image} alt="" /></div>

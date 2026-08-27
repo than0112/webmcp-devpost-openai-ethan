@@ -13,3 +13,6 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Demo mode means a stable, deterministic 30-item dataset; it must never force a fixed yellow-umbrella query.
 - Every catalog item must be discoverable through the same generic natural-language search and weighted matching engine. Do not add item-ID-specific or showcase-query-specific branches.
 - A user-entered description must be able to run the visible Agent Activity flow, rank candidate results, and highlight the best match. Keep the yellow duck umbrella only as the default example when no query is supplied.
+- V2 keeps one visible active investigation per page. The catalog stays primary; the investigation panel supplements it with real candidate, facet, timeline, and evidence engine output.
+- Candidate dimming and best-match emphasis must derive from the active session IDs. Reset must restore every card and clear investigation, activity, evidence, claim, and emphasis state.
+- Evidence UI may display only matched, unknown, and contradiction values returned by the evidence engine; never invent explanatory metadata.

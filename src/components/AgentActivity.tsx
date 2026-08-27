@@ -1,10 +1,16 @@
 import { CaretDown, Check, CircleNotch, Robot } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface ActivityEntry { tool: string; message: string; state: "done" | "active"; }
 
 export function AgentActivity({ supported, entries, onDemo }: { supported: boolean; entries: ActivityEntry[]; onDemo: () => void }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => window.matchMedia("(max-width: 680px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 680px)");
+    const handleChange = (event: MediaQueryListEvent) => setCollapsed(event.matches);
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, []);
   return (
     <aside className={collapsed ? "activity-panel collapsed" : "activity-panel"} aria-label="Agent activity">
       <button className="activity-title" onClick={() => setCollapsed((value) => !value)}><span><Robot weight="fill" /> Agent Activity</span><CaretDown /></button>
