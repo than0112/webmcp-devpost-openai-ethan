@@ -94,13 +94,13 @@ audit the V3 WebMCP baseline
 
 Spec refs: Sections 6, 7, 14, 15.
 
-- [ ] Add `SupportedLocale`, `Casefile`, `CaseStep`, `ScoreSnapshot`, status, and validation result types.
-- [ ] Add deterministic case ID/time helpers that become stable only in Demo Mode.
-- [ ] Implement complete runtime validation for stored casefiles.
-- [ ] Reject invalid JSON, unknown versions, malformed clues, invalid steps, and invalid snapshots.
-- [ ] Rehydrate candidate references from the current catalog and remove missing item IDs safely.
-- [ ] Enforce query and clue length limits.
-- [ ] Add focused unit tests for valid, invalid, stale-catalog, and unsupported-locale payloads.
+- [x] Add `SupportedLocale`, `Casefile`, `CaseStep`, `ScoreSnapshot`, status, and validation result types.
+- [x] Add deterministic case ID/time helpers that become stable only in Demo Mode.
+- [x] Implement complete runtime validation for stored casefiles.
+- [x] Reject invalid JSON, unknown versions, malformed clues, invalid steps, and invalid snapshots.
+- [x] Rehydrate candidate references from the current catalog and remove missing item IDs safely.
+- [x] Enforce query and clue length limits.
+- [x] Add focused unit tests for valid, invalid, stale-catalog, and unsupported-locale payloads.
 
 Acceptance:
 
@@ -418,7 +418,7 @@ verify and document the V3 casefile release
 | --- | --- | --- | --- |
 | 0 | Complete | `plan V3 persistent casefile development` | Baseline `4265b4e`; diff check passed; planning files only |
 | 1 | Complete | `audit the V3 WebMCP baseline` | Typecheck; 82 unit tests; production build; 4 Sites tests |
-| 2 | Pending | — | — |
+| 2 | Complete | `define and validate the V3 casefile` | Typecheck; 90 unit tests; production build; 4 Sites tests |
 | 3 | Pending | — | — |
 | 4 | Pending | — | — |
 | 5 | Pending | — | — |
