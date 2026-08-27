@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CirclesFour, HandTap, Lightning } from "@phosphor-icons/react";
 import itemsData from "./data/items.json";
-import type { LostItem } from "./types/item";
-import { searchItems } from "./lib/search";
+import type { LostItem, SearchInput, SearchResult } from "./types/item";
+import { rankItems, searchItems } from "./lib/search";
 import { Header } from "./components/Header";
 import { Hero } from "./components/Hero";
 import { SearchFilters } from "./components/SearchFilters";
@@ -17,9 +17,11 @@ import type { MatchResult, UserDescription } from "./types/item";
 
 const items = itemsData as LostItem[];
 const recentIds = ["LF-003", "LF-007", "LF-015", "LF-019"];
+const DEFAULT_DEMO_QUERY = "yellow umbrella with a duck and wooden handle";
 
 export function App() {
   const galleryRef = useRef<HTMLElement>(null);
+  const agentTimers = useRef<number[]>([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [selectedItem, setSelectedItem] = useState<LostItem | null>(null);
@@ -31,7 +33,12 @@ export function App() {
 
   const filtered = useMemo(() => searchItems(items, { query, category: category === "all" ? undefined : category }), [query, category]);
   const recent = recentIds.map((id) => items.find((item) => item.id === id)!).filter(Boolean);
-  const browse = () => galleryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const browse = useCallback(() => galleryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), []);
+  const clearAgentTimers = useCallback(() => {
+    agentTimers.current.forEach((timer) => window.clearTimeout(timer));
+    agentTimers.current = [];
+  }, []);
+  useEffect(() => clearAgentTimers, [clearAgentTimers]);
   const addActivity = useCallback((entry: ActivityEntry) => setActivity((current) => [...current.filter((item) => item.tool !== entry.tool), entry]), []);
   const highlight = useCallback((id: string) => {
     setHighlightedItem(id);
@@ -39,24 +46,59 @@ export function App() {
     window.setTimeout(() => setHighlightedItem((current) => current === id ? null : current), 1500);
   }, []);
   const startClaim = useCallback((item: LostItem, description?: UserDescription) => {
-    const [match] = compareItems([item], description ?? { category: "umbrella", color: "yellow", date: "yesterday", features: ["wooden handle", "duck"] });
+    const [match] = compareItems([item], description ?? {
+      query: item.name,
+      category: item.category,
+      color: item.color[0],
+      features: item.distinctive_features,
+    });
     setSelectedItem(null); setClaimCandidate(item); setClaimMatch(match); setClaimConfirmed(false);
   }, []);
-  const webmcpCallbacks = useMemo(() => ({ onActivity: addActivity, onHighlight: highlight, onClaim: startClaim }), [addActivity, highlight, startClaim]);
+  const showAgentSearch = useCallback((input: SearchInput, results: SearchResult[]) => {
+    const visibleQuery = input.query?.trim() || [input.color, input.category, input.location, ...(input.features ?? [])].filter(Boolean).join(" ");
+    clearAgentTimers();
+    setClaimCandidate(null);
+    setClaimConfirmed(false);
+    setCategory("all");
+    setQuery(visibleQuery);
+    browse();
+    if (results[0]) window.setTimeout(() => highlight(results[0].item.id), 100);
+  }, [browse, clearAgentTimers, highlight]);
+  const webmcpCallbacks = useMemo(() => ({ onActivity: addActivity, onSearch: showAgentSearch, onHighlight: highlight, onClaim: startClaim }), [addActivity, highlight, showAgentSearch, startClaim]);
   const webmcpSupported = useWebMCP(items, webmcpCallbacks);
 
-  const previewDemo = () => {
-    const hero = items.find((item) => item.id === "LF-003")!;
-    const heroDescription = { category: "umbrella", color: "yellow", date: "yesterday", features: ["wooden handle", "duck"] };
+  const runAgentSearch = useCallback((description: string, requestClaim = false) => {
+    const naturalLanguage = description.trim() || DEFAULT_DEMO_QUERY;
+    const ranked = rankItems(items, { query: naturalLanguage });
+    const best = ranked[0];
+    clearAgentTimers();
     setActivity([]);
-    setCategory("umbrella");
-    setQuery("");
+    setCategory("all");
+    setQuery(naturalLanguage);
+    setSelectedItem(null);
+    setClaimCandidate(null);
+    setClaimConfirmed(false);
     browse();
-    window.setTimeout(() => addActivity({ tool: "search_lost_items", message: "Found 5 umbrellas", state: "done" }), 350);
-    window.setTimeout(() => { highlight("LF-003"); addActivity({ tool: "get_item_details", message: "Inspecting LF-003", state: "done" }); }, 1000);
-    window.setTimeout(() => addActivity({ tool: "compare_items", message: "96% match · LF-003", state: "done" }), 1850);
-    window.setTimeout(() => { addActivity({ tool: "request_claim", message: "Waiting for human", state: "active" }); startClaim(hero, heroDescription); }, 2700);
-  };
+    if (!best) {
+      addActivity({ tool: "search_lost_items", message: "No matching candidates", state: "done" });
+      return;
+    }
+    const schedule = (callback: () => void, delay: number) => {
+      agentTimers.current.push(window.setTimeout(callback, delay));
+    };
+    schedule(() => addActivity({ tool: "search_lost_items", message: `Ranked ${ranked.length} candidates`, state: "done" }), 250);
+    schedule(() => addActivity({ tool: "compare_items", message: `${Math.round(best.confidence * 100)}% match · ${best.item.id}`, state: "done" }), 850);
+    schedule(() => {
+      highlight(best.item.id);
+      addActivity({ tool: "get_item_details", message: `Highlighting ${best.item.id}`, state: "done" });
+    }, 1450);
+    if (requestClaim) schedule(() => {
+      addActivity({ tool: "request_claim", message: "Waiting for human", state: "active" });
+      startClaim(best.item, { query: naturalLanguage });
+    }, 2200);
+  }, [addActivity, browse, clearAgentTimers, highlight, startClaim]);
+
+  const previewDemo = useCallback(() => runAgentSearch(query || DEFAULT_DEMO_QUERY, true), [query, runAgentSearch]);
 
   return (
     <div className="app-shell">
@@ -77,7 +119,7 @@ export function App() {
         </section>
         <section className="gallery-section" ref={galleryRef} aria-labelledby="gallery-title">
           <div className="section-heading"><div><span className="section-kicker">Community catalog</span><h2 id="gallery-title">Found items</h2></div><p><strong>{items.length} items</strong> are currently waiting to find their owners.</p></div>
-          <SearchFilters query={query} category={category} onQuery={setQuery} onCategory={setCategory} />
+          <SearchFilters query={query} category={category} onQuery={setQuery} onCategory={setCategory} onAgentSearch={() => runAgentSearch(query)} />
           <div className="results-meta"><span>{filtered.length} {filtered.length === 1 ? "match" : "matches"}</span><span>Updated Aug 27, 2026</span></div>
           {filtered.length ? <div className="item-grid">{filtered.map((item) => <ItemCard key={item.id} item={item} highlighted={highlightedItem === item.id} onOpen={() => setSelectedItem(item)} />)}</div> : <EmptyState onReset={() => { setQuery(""); setCategory("all"); }} />}
         </section>

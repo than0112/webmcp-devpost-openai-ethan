@@ -8,10 +8,10 @@ The structured source of truth is `src/data/items.json`. The matching engine doe
 
 ## What works
 
-- Human search, category filters, responsive 30-item gallery, and item details.
-- Deterministic weighted clue matching with explainable matched and missing features.
+- Generic natural-language search across all 30 items, plus category filters and item details.
+- Deterministic weighted ranking with explainable matched terms and fields.
 - Current imperative WebMCP API through `document.modelContext.registerTool()`.
-- Visible agent activity, card scrolling and highlight, and `?demo=true`-safe deterministic data.
+- Visible Agent Activity for any user-entered query; demo mode stabilizes data and never forces a showcase item.
 - Human-only claim confirmation. No WebMCP tool can complete a claim.
 - Progressive enhancement: browsers without WebMCP retain the full manual interface.
 
@@ -19,7 +19,7 @@ The structured source of truth is `src/data/items.json`. The matching engine doe
 
 | Tool | Purpose | State |
 | --- | --- | --- |
-| `search_lost_items` | Search metadata by query, category, color, location, or date | Read-only |
+| `search_lost_items` | Rank the full catalog by natural-language query, structured clues, features, and limit | Read-only |
 | `get_item_details` | Return one complete item and highlight it in the gallery | Read-only |
 | `compare_items` | Rank candidates with deterministic weighted clues | Read-only |
 | `request_claim` | Open the human confirmation UI | Starts UI state only |
@@ -50,8 +50,8 @@ The API is experimental and changes over time. These steps reflect the official 
 2. Open `chrome://flags/#enable-webmcp-testing`, enable the flag, and relaunch Chrome.
 3. Run the app locally and open it in Chrome, or deploy it to an HTTPS origin.
 4. Use Chrome's Model Context Tool Inspector extension or Chrome DevTools WebMCP tooling to inspect the four registered tools.
-5. Run the hero prompt: “I lost an umbrella yesterday. It was yellow, had a wooden curved handle, and there was a small duck on it.”
-6. Verify `LF-003` is highlighted, `compare_items` returns a calculated score of `0.96`, and `request_claim` stops at the human confirmation dialog.
+5. Try natural-language prompts such as “I lost my brown wallet”, “white wireless earbuds”, or the yellow duck umbrella hero prompt.
+6. Verify the expected top item is highlighted, the score is calculated from matching evidence, and `request_claim` stops at the human confirmation dialog.
 
 For an in-app browser with WebMCP enabled, open the site and use the same prompt. During development, all four page-defined tools were discovered and executed successfully in the ChatGPT/Codex in-app browser.
 
@@ -67,13 +67,17 @@ The simplest Pages setup is:
 
 ## Matching model
 
-- Category: +20
-- Color: +20
-- Location: +15
-- Date: +15
-- Each distinctive feature: +15
+The engine tokenizes the query, removes conversational stop words, scores every item against the same metadata fields, and sorts deterministically by score and item ID. Each query term receives its strongest matching field weight:
 
-The earned score is normalized by the applicable evidence. A relative date such as “yesterday” receives 80% of the date weight because it carries less certainty than an exact calendar date; this is what makes the complete LF-003 hero case calculate to `0.96` without hardcoding that result.
+- Exact item name: +40
+- Category: +30
+- Distinctive feature: +25
+- Tag: +20
+- Color or location: +15
+- Area: +10
+- Description keyword: +5
+
+Structured date evidence adds +15. Scores and normalized confidence are calculated at runtime; there are no item-ID-specific or showcase-query-specific branches.
 
 ## Current official references
 
@@ -88,7 +92,7 @@ Because WebMCP remains a proposed standard, implementation code—not the frozen
 
 ## Project status
 
-Local implementation, unit tests, production build, Sites packaging, in-app WebMCP execution, and the complete human confirmation flow are verified. Publishing a public GitHub repository, deploying to a Cloudflare account, and recording the demo video require project-owner accounts and remain release actions.
+Implementation, tests, production build, Sites packaging, in-app WebMCP execution, public GitHub source, Cloudflare Pages deployment, and the human confirmation flow are verified. Recording the final submission video remains a release action.
 
 ## License
 

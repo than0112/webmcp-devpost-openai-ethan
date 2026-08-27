@@ -51,6 +51,15 @@
 - [x] Run type checking, unit tests, production build, interaction checks, and responsive visual QA.
 - [x] Record final design QA evidence and remaining external-only checks.
 
+## Milestone 6 — V1.5 generic agent search
+
+- [x] Replace all-token filtering with deterministic weighted ranking across the complete item metadata index.
+- [x] Add `features` and ranked evidence to `search_lost_items` without hardcoding showcase queries or item IDs.
+- [x] Let any user-entered natural-language description run the visible Agent Activity flow.
+- [x] Redefine demo mode as stable dataset state rather than Yellow Umbrella Mode.
+- [x] Verify the representative V1.5 prompts and generic retrieval of all 30 catalog items.
+- [x] Make production builds reliable without deleting the active OneDrive output directory.
+
 ## Official WebMCP baseline checked on 2026-08-27
 
 - Chrome documentation last updated 2026-08-20 uses `document.modelContext.registerTool()`.
