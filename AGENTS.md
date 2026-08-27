@@ -16,3 +16,4 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - V2 keeps one visible active investigation per page. The catalog stays primary; the investigation panel supplements it with real candidate, facet, timeline, and evidence engine output.
 - Candidate dimming and best-match emphasis must derive from the active session IDs. Reset must restore every card and clear investigation, activity, evidence, claim, and emphasis state.
 - Evidence UI may display only matched, unknown, and contradiction values returned by the evidence engine; never invent explanatory metadata.
+- The claim-confirmation flow must remain usable in Chrome when automatic page translation is active; dynamic confirmation UI must not collapse into a blank page.
