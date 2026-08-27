@@ -1,1559 +1,1096 @@
-# Agent Lost & Found — SPEC.md
+# Agent Lost & Found — V2 SPEC
 
-**Version:** 1.1
-**Status:** MVP Scope Frozen
+**Version:** 2.0 Review Draft
+
+**Codename:** Investigation
+
+**Status:** Development blocked pending user approval
+
 **Target:** The WebMCP Challenge
-**Build Goal:** 1-day hackathon MVP
+
+**Primary Goal:** Multi-step agent investigation over a deterministic 30-item catalog
+
+**Tagline:** Agents investigate. Humans decide.
 
 ---
 
-# 1. Project Overview
+## 1. Approval Gate
 
-Agent Lost & Found 是一個 WebMCP-enabled Lost & Found Web App。
+This document is the proposed V2 implementation contract.
 
-核心概念：
-
-> **Agents search. Humans decide.**
-
-一般使用者可以透過網站 UI 瀏覽失物。
-
-AI Agent 則可以透過 WebMCP 使用網站提供的 structured tools：
-
-```text
-search_lost_items
-get_item_details
-compare_items
-request_claim
-```
-
-Agent 負責：
-
-```text
-Search
-↓
-Inspect
-↓
-Compare
-↓
-Recommend
-```
-
-人類負責：
-
-```text
-Confirm
-↓
-Claim
-```
-
-本專案不是 AI Chatbot。
-
-核心展示的是：
-
-**同一個網站，同時為 Human UI 與 Agent Interface 設計。**
+- Do not begin V2 implementation until the project owner explicitly replies `OK`.
+- Reviewing or editing this document does not authorize code changes, commits, pushes, or deployment.
+- After approval, implement incrementally. Do not rewrite the existing application from scratch.
+- Make one Git commit after each completed and verified development phase.
+- Keep the last approved V1.5 commit recoverable through Git history.
 
 ---
 
-# 2. Product Principle
+## 2. Current Baseline — V1.5 Already Complete
 
-傳統 Lost & Found：
+V2 starts from the working V1.5 application. The following are existing capabilities, not V2 work:
 
-```text
-Human
-↓
-Search
-↓
-Filter
-↓
-Browse
-↓
-Open
-↓
-Compare manually
-↓
-Claim
-```
+- React, Vite, and TypeScript application.
+- Responsive human browsing interface for 30 catalog items.
+- `src/data/items.json` as the single catalog source of truth.
+- Generic natural-language search across all 30 items.
+- Deterministic weighted ranking with no item-ID-specific search branch.
+- Structured search clues: query, category, color, location, date, and features.
+- Four registered imperative WebMCP tools using the current official `document.modelContext.registerTool()` API:
+  - `search_lost_items`
+  - `get_item_details`
+  - `compare_items`
+  - `request_claim`
+- Visible Agent Activity, result highlighting, and human-only claim confirmation.
+- Demo behavior that uses the current user query and only falls back to a yellow umbrella example when the query is empty.
+- Automated generic search coverage for every catalog item.
+- Public GitHub source and Cloudflare Pages deployment.
 
-Agent Lost & Found：
-
-```text
-Human
-
-"I lost a yellow umbrella
-with a wooden handle
-and a duck on it."
-
-↓
-Agent
-↓
-WebMCP
-↓
-Search
-↓
-Inspect
-↓
-Compare
-↓
-Best Match
-↓
-Human Confirmation
-```
-
-WebMCP 必須是產品核心，而不是附加功能。
+V2 must preserve these capabilities and must not reimplement them as parallel systems.
 
 ---
 
-# 3. Hackathon Objective
+## 3. Product Definition
 
-Demo 必須在約 30 秒內讓第一次接觸 WebMCP 的人理解：
+V1.5 can rank candidates from a description. V2 must help an agent investigate when the first description is incomplete.
 
-> 網站不再只暴露 UI 給人操作，也能直接暴露 structured capabilities 給 Agent。
+```text
+Human description
+        ↓
+WebMCP agent
+        ↓
+Search catalog
+        ↓
+Inspect uncertainty
+        ↓
+Ask the highest-value question
+        ↓
+Merge the new clue into the active investigation
+        ↓
+Search and compare again
+        ↓
+Explain matched, unknown, and contradictory evidence
+        ↓
+Recommend a possible match
+        ↓
+Request human claim confirmation
+```
 
-Agent 不需要：
-
-* 猜按鈕
-* 操作 Filter UI
-* Scroll 30 張卡片
-* 從 DOM 猜商品資料
-
-而是直接使用網站定義的工具。
+V2 is successful when the page supports a real multi-step investigation instead of replaying a scripted answer.
 
 ---
 
-# 4. MVP Scope
+## 4. V2 Scope
 
-## MUST HAVE
+### P0 — Required
 
-* 30 Lost & Found items
-* 30 對應物件 icon
-* Lost Item Gallery
-* Category Filter
-* Basic Human Search
-* Item Detail
-* WebMCP integration
-* `search_lost_items`
-* `get_item_details`
-* `compare_items`
-* `request_claim`
-* Agent Activity panel
-* Agent-triggered card highlight
-* Human Claim Confirmation
-* Responsive layout
-* Demo Mode
-* Cloudflare deployment
-* Public GitHub repository
-* README
-* Open-source LICENSE
+#### Investigation
 
----
+- One active in-memory investigation session.
+- Progressive clue accumulation.
+- Deterministic candidate refinement.
+- Candidate count and best-match state.
+- Investigation timeline visible in the human UI.
+- Session reset on page refresh or explicit reset.
 
-# 5. Explicitly Out of Scope
+#### Reasoning Support
 
-V1 不實作：
+- Identify which remaining field best separates current candidates.
+- Do not suggest questions about clues the user already supplied.
+- Return deterministic question hints from templates.
+- Handle zero, one, or many candidates safely.
 
-* Authentication
-* Database
-* Supabase
-* User accounts
-* Admin dashboard
-* Real email
-* Real claim processing
-* OpenAI API
-* LLM API
-* Image recognition
-* Vision model
-* Embeddings
-* Vector database
-* RAG
-* Maps API
-* Payments
-* Notifications
-* Persistent claim history
+#### Matching and Evidence
 
-資料來源保持：
+- Positive evidence.
+- Unknown or unverified evidence.
+- Explicit contradictions.
+- Negative-clue penalties.
+- Match score breakdown.
+- Human-readable match strength.
+- Evidence explanation for one recommended item.
 
-```text
-Static JSON
-+
-React State
-```
+#### WebMCP
 
-圖片只作為 visual representation。
+- Upgrade the four existing tools without breaking their core behavior.
+- Add exactly two tools:
+  - `get_search_facets`
+  - `get_match_evidence`
+- Keep a maximum of six page-defined WebMCP tools.
 
-**Agent 搜尋的 source of truth 必須是 structured JSON metadata，而不是 computer vision。**
+#### Safety
+
+- `request_claim` may only open the confirmation UI.
+- Do not register `confirm_claim` or any equivalent tool.
+- Only a human UI interaction may confirm a claim.
+
+### P1 — Optional After P0
+
+- `?debug=true` score breakdown on candidate cards.
+- Minor investigation animation and demo polish.
+- Additional synonym coverage beyond the acceptance-test vocabulary.
 
 ---
 
-# 6. Tech Stack
+## 5. Non-Goals
 
-```text
-Frontend
-React
-Vite
-TypeScript
+V2 must not add:
 
-Styling
-Tailwind CSS
+- Image recognition or a Vision API.
+- LLM API calls from the website.
+- RAG, embeddings, or a vector database.
+- Authentication.
+- A database or backend service.
+- Real claim submission.
+- Maps.
+- A chatbot UI.
+- Admin tools.
+- Payments.
+- Local storage or cross-device session persistence.
 
-WebMCP
-Current official WebMCP browser API
-
-Data
-Static JSON
-
-State
-React useState / useMemo / useEffect
-
-Deployment
-Cloudflare Pages
-
-Repository
-GitHub
-```
-
-禁止為了架構完整度加入不必要的 infrastructure。
+The browser agent is the intelligence layer. The website provides structured data, deterministic search, investigation support, evidence, and safe actions.
 
 ---
 
-# 7. Primary Demo Scenario
+## 6. Dataset Contract
 
-Hero Item：
+`src/data/items.json` remains the source of truth.
 
-```text
-LF-003
-Yellow Duck Umbrella
-```
-
-使用者告訴 Agent：
-
-> I lost an umbrella yesterday. I remember it was yellow, had a wooden curved handle, and there was a small duck on it.
-
-Agent 開始使用 WebMCP。
-
----
-
-# 8. Primary Demo Flow
-
-## Step 1 — Search
-
-Agent：
-
-```text
-search_lost_items({
-  category: "umbrella",
-  color: "yellow",
-  date: "yesterday"
-})
-```
-
-網站搜尋 Lost & Found dataset。
-
-回傳候選項目。
-
----
-
-## Step 2 — Inspect
-
-Agent：
-
-```text
-get_item_details({
-  item_id: "LF-003"
-})
-```
-
-回傳：
-
-* name
-* category
-* color
-* description
-* distinctive features
-* found location
-* found date
-* status
-* image
-* tags
-
-同時網站：
-
-```text
-scrollIntoView(LF-003)
-↓
-highlight LF-003
-```
-
-使用者可以直接看到 Agent 正在查看哪一件物品。
-
----
-
-# 9. Agent Card Highlight
-
-當 WebMCP 存取特定 Item 時：
-
-對應 Card：
-
-```text
-scale: 1.02
-border emphasis
-soft glow
-```
-
-動畫時間：
-
-```text
-1000–1500ms
-```
-
-不要加入複雜動畫。
-
-目的是讓 WebMCP interaction 在 Demo 中變得可視化。
-
----
-
-# 10. Compare
-
-如果有多個候選：
-
-```text
-compare_items({
-  item_ids: [
-    "LF-001",
-    "LF-002",
-    "LF-003",
-    "LF-004",
-    "LF-005"
-  ],
-  user_description: {
-    category: "umbrella",
-    color: "yellow",
-    features: [
-      "wooden curved handle",
-      "duck"
-    ],
-    date: "yesterday"
-  }
-})
-```
-
-系統執行 deterministic matching。
-
-不使用 AI。
-
----
-
-# 11. Matching Engine
-
-推薦權重：
-
-```text
-Category          +20
-Color             +20
-Location          +15
-Date              +15
-Distinct Feature  +15 each
-```
-
-最後 normalize：
-
-```text
-0.00 → 1.00
-```
-
-Hero Case 預期：
-
-```text
-LF-003
-
-Match:
-0.96
-```
-
-實際分數應由 matching algorithm 計算，不允許 hardcode `0.96`。
-
----
-
-# 12. Compare Response
-
-回傳格式：
-
-```json
-{
-  "best_match": {
-    "item_id": "LF-003",
-    "name": "Yellow Duck Umbrella",
-    "image": "/items/LF-003.png",
-    "score": 0.96,
-    "matched_features": [
-      "umbrella",
-      "yellow",
-      "wooden curved handle",
-      "duck illustration"
-    ],
-    "missing_features": []
-  }
-}
-```
-
-如果存在其他候選，可額外回傳：
-
-```json
-{
-  "alternatives": []
-}
-```
-
-Agent 必須能解釋：
-
-> Why this item matched.
-
-而不只是顯示 confidence number。
-
----
-
-# 13. request_claim
-
-當 Agent 認為找到可能物品：
-
-```text
-request_claim({
-  item_id: "LF-003"
-})
-```
-
-Response：
-
-```json
-{
-  "status": "confirmation_required",
-  "item_id": "LF-003",
-  "message": "Human confirmation is required to claim this item."
-}
-```
-
-同時網站觸發：
-
-```text
-ClaimModal
-```
-
----
-
-# 14. Human-in-the-loop Rule
-
-這是核心產品規則。
-
-Agent 可以：
-
-* 搜尋
-* 查看
-* 比較
-* 推薦
-* Request Claim
-
-Agent 不可以：
-
-**Confirm Claim**
-
-最終 claim 必須由人類透過 UI：
-
-```text
-Confirm Claim
-```
-
-完成。
-
-Tagline：
-
-> **Agents search. Humans decide.**
-
----
-
-# 15. Dataset
-
-固定：
-
-**30 Items**
-
-每件物品 ID：
-
-```text
-LF-001
-...
-LF-030
-```
-
-與 icon 一一對應。
-
----
-
-# 16. Item Catalog
-
-## Umbrellas
-
-```text
-LF-001 Black Umbrella
-LF-002 Navy Umbrella
-LF-003 Yellow Duck Umbrella
-LF-004 Clear Umbrella
-LF-005 Folding Umbrella
-```
-
-## Bags
-
-```text
-LF-006 Canvas Tote Bag
-LF-007 Black Backpack
-LF-008 Green Backpack
-LF-009 Beige Shoulder Bag
-LF-010 Navy Messenger Bag
-LF-011 Pink Handbag
-```
-
-## Wallets
-
-```text
-LF-012 Beige Wallet
-LF-013 Brown Wallet
-LF-014 Card Holder
-```
-
-## Keys / Keychains
-
-```text
-LF-015 House Keys
-LF-016 Car Keys
-LF-017 Bear Keychain
-LF-018 Heart Keychain
-```
-
-## Audio
-
-```text
-LF-019 AirPods
-LF-020 Headphones
-```
-
-## Glasses
-
-```text
-LF-021 Round Glasses
-LF-022 Black Glasses
-```
-
-## Bottles
-
-```text
-LF-023 Blue Water Bottle
-LF-024 Thermos Bottle
-```
-
-## Clothing / Accessories
-
-```text
-LF-025 Black Cap
-LF-026 Bucket Hat
-LF-027 Gray Scarf
-LF-028 Black Gloves
-```
-
-## Miscellaneous
-
-```text
-LF-029 Notebook
-LF-030 Black Pen
-```
-
----
-
-# 17. Item Data Schema
-
-`src/data/items.json`
-
-```json
-{
-  "id": "LF-003",
-  "name": "Yellow Duck Umbrella",
-  "category": "umbrella",
-  "color": [
-    "yellow"
-  ],
-  "description": "Yellow umbrella with a small duck illustration and curved wooden handle.",
-  "distinctive_features": [
-    "yellow canopy",
-    "duck illustration",
-    "wooden curved handle"
-  ],
-  "found_location": "Maple Coffee",
-  "found_area": "Downtown",
-  "found_date": "2026-08-26",
-  "status": "unclaimed",
-  "image": "/items/LF-003.png",
-  "tags": [
-    "umbrella",
-    "yellow",
-    "duck",
-    "wooden-handle",
-    "coffee-shop"
-  ]
-}
-```
-
----
-
-# 18. Asset Structure
-
-所有圖片：
-
-```text
-public/items/
-```
-
-命名：
-
-```text
-LF-001.png
-LF-002.png
-LF-003.png
-...
-LF-030.png
-```
-
-禁止使用：
-
-```text
-umbrella-final-v2.png
-bag-new.png
-```
-
-ID 必須永遠是圖片與 metadata 的連結。
-
----
-
-# 19. Data Source of Truth
-
-架構：
-
-```text
-             Human UI
-                ↑
-                │
-            items.json
-            ↙       ↘
-      Icon Assets    WebMCP
-                        ↓
-                      Agent
-```
-
-`items.json` 是唯一 structured source of truth。
-
-Icon 不承擔 metadata extraction。
-
----
-
-# 20. WebMCP Tool 01
-
-## search_lost_items
-
-用途：
-
-搜尋符合描述的失物。
-
-Input：
-
-```json
-{
-  "query": "yellow umbrella",
-  "category": "umbrella",
-  "color": "yellow",
-  "location": "coffee shop",
-  "date": "2026-08-26"
-}
-```
-
-所有欄位 optional。
-
-Output：
-
-```json
-{
-  "count": 1,
-  "results": [
-    {
-      "id": "LF-003",
-      "name": "Yellow Duck Umbrella",
-      "image": "/items/LF-003.png",
-      "found_location": "Maple Coffee",
-      "found_date": "2026-08-26"
-    }
-  ]
-}
-```
-
-Tool description：
-
-> Search reported lost-and-found items using known attributes. Use this before requesting details or attempting a claim.
-
----
-
-# 21. WebMCP Tool 02
-
-## get_item_details
-
-Input：
-
-```json
-{
-  "item_id": "LF-003"
-}
-```
-
-Output：
-
-完整 item metadata。
-
-Side effect：
-
-```text
-highlightItem("LF-003")
-scrollToItem("LF-003")
-```
-
----
-
-# 22. WebMCP Tool 03
-
-## compare_items
-
-Input：
-
-```json
-{
-  "item_ids": [
-    "LF-001",
-    "LF-002",
-    "LF-003"
-  ],
-  "user_description": {
-    "category": "umbrella",
-    "color": "yellow",
-    "features": [
-      "wooden handle",
-      "duck"
-    ]
-  }
-}
-```
-
-Output：
-
-```json
-{
-  "best_match": {},
-  "alternatives": []
-}
-```
-
-Response 必須包含：
-
-* score
-* matched_features
-* missing_features
-
----
-
-# 23. WebMCP Tool 04
-
-## request_claim
-
-Input：
-
-```json
-{
-  "item_id": "LF-003"
-}
-```
-
-Output：
-
-```json
-{
-  "status": "confirmation_required",
-  "item_id": "LF-003"
-}
-```
-
-Side effect：
-
-```text
-openClaimModal("LF-003")
-```
-
----
-
-# 24. Agent Activity Panel
-
-Desktop：
-
-右下角固定小 Panel。
-
-Mobile：
-
-可以 collapse。
-
-內容：
-
-```text
-Agent Activity
-
-✓ search_lost_items
-  Found 5 umbrellas
-
-✓ get_item_details
-  Inspecting LF-003
-
-✓ compare_items
-  96% match
-
-→ request_claim
-  Waiting for human
-```
-
-每次 WebMCP tool call：
-
-更新 activity state。
-
-目的：
-
-**讓評審看得見 Agent 正在使用網站提供的能力。**
-
----
-
-# 25. Homepage
-
-Hero：
-
-```text
-AGENT LOST & FOUND
-
-Lost something?
-
-Let your agent help find it.
-
-Describe what you remember.
-Your agent can search and compare
-reported items directly.
-
-[ Browse Found Items ]
-```
-
-Supporting line：
-
-> Agents search. Humans decide.
-
----
-
-# 26. Recently Found
-
-Hero 下方：
-
-```text
-Recently Found
-```
-
-展示約：
-
-```text
-LF-003
-LF-007
-LF-015
-LF-019
-```
-
----
-
-# 27. Item Gallery
-
-Header：
-
-```text
-Found Items
-
-30 items currently waiting
-to find their owners.
-```
-
-Filters：
-
-```text
-All
-Umbrellas
-Bags
-Wallets
-Keys
-Audio
-Glasses
-Bottles
-Accessories
-Other
-```
-
-Desktop：
-
-```text
-5–6 columns
-```
-
-Tablet：
-
-```text
-3–4 columns
-```
-
-Mobile：
-
-```text
-2 columns
-```
-
----
-
-# 28. Item Card
-
-內容：
-
-```text
-ICON
-
-LF-003
-
-Yellow Duck Umbrella
-
-Maple Coffee
-Aug 26
-
-View Item →
-```
-
-Hover：
-
-```text
-small translateY
-subtle shadow
-```
-
-Agent Highlight：
-
-```text
-border emphasis
-scale 1.02
-soft glow
-```
-
----
-
-# 29. Item Detail
-
-內容：
-
-```text
-ICON
-
-LF-003
-
-Yellow Duck Umbrella
-
-Found at
-Maple Coffee
-
-Found
-August 26
-
-Details
-
-Yellow canopy
-Wooden curved handle
-Small duck illustration
-
-Status
-
-● Unclaimed
-```
-
----
-
-# 30. Claim Modal
-
-```text
-Possible Match Found
-
-[ICON]
-
-Yellow Duck Umbrella
-
-LF-003
-
-Found
-Maple Coffee
-
-Date
-August 26
-
-Matched clues
-
-✓ Umbrella
-✓ Yellow
-✓ Wooden handle
-✓ Duck illustration
-
-Match confidence
-
-96%
-
-[ Cancel ]
-
-[ Confirm Claim ]
-```
-
-Confirm 後：
-
-```text
-Claim Request Created
-```
-
-不送 API。
-
-只更新 React state。
-
----
-
-# 31. Visual Direction
-
-風格：
-
-**Friendly civic utility × editorial product design**
-
-不要：
-
-* Government portal aesthetic
-* Generic AI gradients
-* Cyberpunk
-* Excessive glassmorphism
-* Heavy animations
-* Dashboard overload
-
-推薦：
-
-```text
-Background
-Warm off-white
-
-Cards
-White
-
-Primary
-Deep navy
-
-Accent
-Soft yellow
-
-Success
-Muted green
-```
-
-Typography：
-
-```text
-Inter
-```
-
-可選：
-
-Serif display font 只用於 Hero。
-
----
-
-# 32. State
-
-只需要：
+Each item supplies:
 
 ```ts
-selectedItem
-searchFilters
-highlightedItem
-claimCandidate
-claimStatus
-agentActivity
+interface LostItem {
+  id: string;
+  name: string;
+  category: string;
+  color: string[];
+  description: string;
+  distinctive_features: string[];
+  found_location: string;
+  found_area: string;
+  found_date: string;
+  status: "unclaimed" | "claim-pending";
+  image: string;
+  tags: string[];
+}
 ```
 
-使用：
+Rules:
 
-```text
-useState
-useMemo
-useEffect
-```
-
-禁止 Redux。
+- Search, facets, matching, evidence, and UI results must derive from this data.
+- No item ID, score, candidate list, or answer may be hardcoded for a demo.
+- Do not claim that an item has a feature that is absent from both its metadata and visible asset.
+- V2 does not add a fictional bear keychain or library location to LF-007.
+- If catalog metadata changes later, update its asset, tests, and demo claims together.
 
 ---
 
-# 33. File Structure
+## 7. Main V2 Demo — Keys Investigation
 
-```text
-agent-lost-found/
+The official V2 demo uses existing catalog data without modifying images or inventing features.
 
-├── public/
-│   └── items/
-│       ├── LF-001.png
-│       ├── LF-002.png
-│       ├── ...
-│       └── LF-030.png
-│
-├── src/
-│
-│   ├── components/
-│   │   ├── Header.tsx
-│   │   ├── Hero.tsx
-│   │   ├── ItemCard.tsx
-│   │   ├── ItemGrid.tsx
-│   │   ├── ItemDetail.tsx
-│   │   ├── SearchFilters.tsx
-│   │   ├── ClaimModal.tsx
-│   │   └── AgentActivity.tsx
-│
-│   ├── data/
-│   │   └── items.json
-│
-│   ├── lib/
-│   │   ├── search.ts
-│   │   ├── matching.ts
-│   │   └── webmcp.ts
-│
-│   ├── hooks/
-│   │   └── useWebMCP.ts
-│
-│   ├── types/
-│   │   └── item.ts
-│
-│   ├── App.tsx
-│   ├── main.tsx
-│   └── index.css
-│
-├── README.md
-├── LICENSE
-├── package.json
-├── vite.config.ts
-└── tsconfig.json
-```
+### Round 1
+
+Human:
+
+> I lost something on a key ring.
+
+Agent calls `search_lost_items`.
+
+Expected candidates include LF-015 through LF-018.
+
+### Round 2
+
+Agent calls `get_search_facets`.
+
+The tool identifies the attached object or charm shape as a high-value clue and returns a deterministic question hint such as:
+
+> Do you remember what was attached to the ring — a house, bear, heart, or car fob?
+
+Human:
+
+> It had a small bear charm.
+
+Agent calls `search_lost_items` again with the active `session_id`. The clue is merged into the session.
+
+Expected strongest candidate: LF-017 Bear Keychain.
+
+### Evidence and Claim
+
+Agent calls `compare_items`, then `get_match_evidence`.
+
+Expected evidence is derived from LF-017 metadata:
+
+- Key ring or keychain category evidence.
+- Bear or teddy-bear feature evidence.
+- Brown color evidence when supplied.
+- Children's Library location evidence when supplied.
+- No invented brand or backpack evidence.
+
+Agent calls `request_claim`.
+
+The website opens the human confirmation UI and stops.
+
+Ending:
+
+> Agents investigate. Humans decide.
+
+The previous yellow duck umbrella remains a valid one-step regression example, not the V2 investigation demo.
 
 ---
 
-# 34. Main Data Flow
+## 8. Architecture
 
 ```text
-items.json
-    ↓
-    ├──────────── Human UI
-    │
-    └──────────── WebMCP
+Human UI ───────────────┐
                        ↓
-                     Agent
+WebMCP tools ──→ Investigation Session
                        ↓
-              search_lost_items
+                Generic Search Engine
                        ↓
-              get_item_details
+                  items.json
                        ↓
-                 Highlight
-                       ↓
-                compare_items
-                       ↓
-                  Best Match
-                       ↓
-                request_claim
-                       ↓
-                  ClaimModal
-                       ↓
-             Human Confirmation
+                 Candidate Set
+                  ↙         ↘
+          Facet Engine     Matching Engine
+                  ↓             ↓
+          Next Question    Ranked Evidence
+                                ↓
+                         Evidence Engine
+                                ↓
+                       Human Claim Review
+```
+
+Separation rules:
+
+- WebMCP tool handlers orchestrate pure engines; they do not contain scoring logic.
+- Human search and WebMCP search reuse the same search engine.
+- `compare_items` reuses the same normalized evidence primitives as search.
+- `get_match_evidence` formats existing evidence; it does not perform a second unrelated ranking pass.
+- React owns the single active session and visible timeline.
+
+---
+
+## 9. Planned File Structure
+
+```text
+src/
+├── components/
+│   ├── InvestigationPanel.tsx   # Session status, timeline, and reset action
+│   ├── InvestigationStep.tsx    # One visible investigation event
+│   ├── EvidenceCard.tsx         # Match strength and evidence sections
+│   └── CandidateBadge.tsx       # Candidate or dimmed state indicator
+├── hooks/
+│   ├── useInvestigation.ts      # Single active in-memory session reducer
+│   └── useWebMCP.ts             # Registers and orchestrates six WebMCP tools
+├── lib/
+│   ├── normalize.ts             # Tokenization, aliases, singular/plural normalization
+│   ├── search.ts                # Generic ranking and candidate retrieval
+│   ├── matching.ts              # Positive, unknown, and contradiction scoring
+│   ├── facets.ts                # Candidate discrimination and question hints
+│   └── evidence.ts              # Evidence explanation and score breakdown shaping
+├── data/
+│   └── items.json               # Unchanged catalog source of truth
+└── types/
+    ├── item.ts                  # Catalog, search, and match types
+    └── investigation.ts         # Session, clue, step, facet, and evidence types
+```
+
+Do not create `lib/webmcp.ts` unless shared tool-registration code actually needs it. Keep the existing registration hook as the primary integration point.
+
+---
+
+## 10. Normalization Contract
+
+Move reusable normalization from `search.ts` into `normalize.ts`.
+
+Required behavior:
+
+- Lowercase and Unicode normalization.
+- Punctuation removal.
+- Stop-word removal for natural-language queries.
+- Token-boundary-aware matching.
+- Minimal singular/plural normalization.
+- Small, explicit synonym dictionary.
+- No external NLP dependency.
+
+Initial synonym groups:
+
+```ts
+const SYNONYMS = {
+  bag: ["backpack", "handbag", "shoulder bag", "messenger bag", "tote"],
+  earbuds: ["airpods", "earphones", "wireless earbuds"],
+  bottle: ["water bottle", "thermos"],
+  glasses: ["spectacles", "eyeglasses"],
+  hat: ["cap", "bucket hat"],
+  key: ["keys", "key ring", "keychain"],
+};
+```
+
+Avoid unrestricted substring matching that creates false relationships such as `water` matching only because an item was found at `Waterfront`.
+
+---
+
+## 11. Search Ranking Contract
+
+Each query term receives its strongest matching field weight. The same term must not collect duplicate points from every field.
+
+| Evidence source | Weight |
+| --- | ---: |
+| Complete item name present in query | +40 |
+| Category | +30 |
+| Distinctive feature | +25 |
+| Tag | +20 |
+| Color | +15 |
+| Location | +15 |
+| Date | +15 |
+| Area | +10 |
+| Description keyword | +5 |
+
+Rules:
+
+- Ranking is deterministic.
+- Ties resolve by item ID ascending.
+- Structured filters and natural-language terms use the same normalized vocabulary.
+- Search returns the five strongest results by default.
+- The response includes total candidate count but does not send all 30 item records to the agent.
+- The full candidate set remains available inside the active investigation session for facet analysis.
+- Match score is a deterministic similarity score, not an AI probability.
+- Search output includes a compact `score_breakdown` in debug mode only.
+
+---
+
+## 12. Investigation Session
+
+V2 supports one active session per page.
+
+```ts
+type InvestigationStatus =
+  | "searching"
+  | "needs_clue"
+  | "possible_match"
+  | "confirmation_required"
+  | "completed";
+
+interface SearchClue {
+  kind: "query" | "category" | "color" | "feature" | "location" | "date" | "negative";
+  value: string;
+  source: "human" | "agent" | "query";
+}
+
+interface SearchStep {
+  id: string;
+  label: string;
+  candidateCount: number;
+  candidateIds: string[];
+  createdAt: number;
+}
+
+interface InvestigationSession {
+  id: string;
+  originalQuery: string;
+  clues: SearchClue[];
+  candidateIds: string[];
+  searches: SearchStep[];
+  bestMatch?: string;
+  status: InvestigationStatus;
+}
+```
+
+Session rules:
+
+- The first search creates a session and returns its ID.
+- A later search with that `session_id` merges normalized clues and appends a timeline step.
+- Explicit new tool input wins over older conflicting session values.
+- Duplicate normalized clues are ignored.
+- A missing or stale session ID returns a structured error and does not create hidden state.
+- Refresh resets the session.
+- Explicit reset clears investigation, activity, candidate emphasis, and claim state.
+
+---
+
+## 13. Facet Engine
+
+`get_search_facets` answers: “What should the agent ask next?”
+
+Candidate fields considered:
+
+- Category.
+- Color.
+- Canonical distinctive feature.
+- Location.
+- Area.
+- Tag group.
+
+For candidate count `n > 1`:
+
+```ts
+discrimination = (uniqueValueCount - 1) / (candidateCount - 1);
+coverage = candidatesWithAValue / candidateCount;
+facetScore = discrimination * coverage;
+```
+
+Classification:
+
+- `facetScore >= 0.70` → high.
+- `facetScore >= 0.40` → medium.
+- Otherwise → low.
+
+Rules:
+
+- One value shared by all candidates has zero discrimination.
+- Exclude clues already present in the session.
+- Exclude fields with inadequate coverage.
+- Do not treat every free-text feature phrase as a unique high-value facet.
+- Canonicalize features before comparing them.
+- Return at most three useful clues.
+- Use deterministic question templates; the website does not generate prose with an LLM.
+- Zero candidates returns recovery guidance.
+- One candidate returns no follow-up facet and recommends evidence comparison.
+
+---
+
+## 14. Evidence Semantics
+
+Evidence types have precise meanings:
+
+### Matched
+
+The item metadata confirms a supplied positive clue.
+
+Examples:
+
+- User says `bear`; item has `teddy bear charm`.
+- User says `library`; item was found at `Children's Library`.
+
+### Unknown
+
+The clue cannot be verified from available metadata, but the item does not explicitly conflict with it.
+
+Examples:
+
+- User supplies a material detail that is not represented in item metadata.
+
+Do not invent unknown fields such as `brand unknown` unless the catalog formally contains a brand field.
+
+### Contradiction
+
+The item metadata explicitly conflicts with a structured positive clue, or the item contains an explicitly supplied negative clue.
+
+Examples:
+
+- User says `black`; candidate has only `green` color values.
+- User says `definitely no laptop sleeve`; candidate metadata contains `laptop sleeve`.
+
+Absence of a free-text feature is unknown, not automatically a contradiction.
+
+---
+
+## 15. Contradiction Penalties
+
+| Contradiction source | Penalty |
+| --- | ---: |
+| Category | -40 |
+| Distinctive feature or explicit negative clue | -30 |
+| Color | -20 |
+| Location | -15 |
+| Date | -15 |
+
+Scoring rules:
+
+1. Calculate positive evidence using the generic field weights.
+2. Calculate contradiction penalties once per normalized clue.
+3. Subtract penalties from earned evidence.
+4. Clamp earned evidence to zero or greater.
+5. Normalize against the applicable evidence budget.
+6. Clamp the final match score to `0.00…1.00`.
+7. Return the positive and negative breakdown used to calculate the score.
+
+The score must never be a hardcoded demo value.
+
+Match strength labels:
+
+- `0.85–1.00` → Strong Match.
+- `0.65–0.84` → Possible Match.
+- `0.40–0.64` → Weak Match.
+- `< 0.40` → Unlikely.
+
+UI wording must say `Match Score`, not `AI certainty` or `probability`.
+
+---
+
+## 16. WebMCP Tool Contracts
+
+All schemas use `type: "object"` and `additionalProperties: false`.
+
+### Tool 01 — `search_lost_items` (Upgrade)
+
+Purpose: create or continue an investigation and return ranked catalog candidates.
+
+```ts
+interface SearchLostItemsInput {
+  session_id?: string;
+  query: string;
+  category?: string;
+  colors?: string[];
+  features?: string[];
+  location?: string;
+  date?: string;
+  negative_clues?: string[];
+  limit?: number; // default 5, maximum 10
+}
+```
+
+```ts
+interface SearchLostItemsOutput {
+  session_id: string;
+  query: string;
+  candidate_count: number;
+  status: InvestigationStatus;
+  results: Array<{
+    item_id: string;
+    name: string;
+    score: number;
+    match_strength: string;
+    matched_terms: string[];
+    matched_fields: string[];
+  }>;
+}
+```
+
+Compatibility decision:
+
+- V2 canonical input is `colors: string[]`.
+- During migration, the internal TypeScript adapter may accept the V1.5 `color` string, but only canonical V2 fields appear in the registered schema.
+
+Side effects:
+
+- Updates the active session.
+- Updates visible candidates and timeline.
+- Does not open a claim.
+
+### Tool 02 — `get_item_details` (Keep Behavior)
+
+```ts
+interface GetItemDetailsInput {
+  item_id: string;
+}
+```
+
+Returns complete item metadata and visibly scrolls to and highlights the corresponding card.
+
+### Tool 03 — `get_search_facets` (New)
+
+```ts
+interface GetSearchFacetsInput {
+  session_id: string;
+}
+```
+
+```ts
+interface GetSearchFacetsOutput {
+  session_id: string;
+  candidate_count: number;
+  status: "needs_clue" | "ready_to_compare" | "no_candidates";
+  useful_clues: Array<{
+    field: string;
+    question_hint: string;
+    information_gain: "high" | "medium" | "low";
+    score: number;
+    example_values: string[];
+  }>;
+}
+```
+
+The tool reads candidates from the named active session. It does not accept arbitrary hidden candidates.
+
+### Tool 04 — `compare_items` (Upgrade)
+
+```ts
+interface CompareItemsInput {
+  session_id?: string;
+  item_ids: string[];
+  known_clues?: {
+    query?: string;
+    category?: string;
+    colors?: string[];
+    features?: string[];
+    location?: string;
+    date?: string;
+  };
+  negative_clues?: string[];
+}
+```
+
+If `session_id` is supplied, session clues are merged with explicit inputs. Explicit inputs win.
+
+Response:
+
+```ts
+interface CompareItemsOutput {
+  best_match: MatchEvidenceSummary;
+  alternatives: MatchEvidenceSummary[];
+}
+
+interface MatchEvidenceSummary {
+  item_id: string;
+  name: string;
+  score: number;
+  match_strength: "strong" | "possible" | "weak" | "unlikely";
+  matched: string[];
+  unknown: string[];
+  contradictions: string[];
+}
+```
+
+### Tool 05 — `get_match_evidence` (New)
+
+Purpose: explain one candidate without performing a separate ranking.
+
+```ts
+interface GetMatchEvidenceInput {
+  item_id: string;
+  session_id?: string;
+  known_clues?: CompareItemsInput["known_clues"];
+  negative_clues?: string[];
+}
+```
+
+```ts
+interface GetMatchEvidenceOutput {
+  item_id: string;
+  summary: {
+    strength: "strong" | "possible" | "weak" | "unlikely";
+    score: number;
+  };
+  evidence: {
+    matched: string[];
+    unknown: string[];
+    contradictions: string[];
+  };
+  score_breakdown: Array<{
+    clue: string;
+    field: string;
+    points: number;
+    type: "positive" | "contradiction";
+  }>;
+}
+```
+
+Side effects:
+
+- Updates the visible Evidence Card.
+- Adds an investigation timeline step.
+- Does not open a claim.
+
+### Tool 06 — `request_claim` (Keep)
+
+```ts
+interface RequestClaimInput {
+  item_id: string;
+  session_id?: string;
+}
+```
+
+Returns:
+
+```ts
+{
+  status: "confirmation_required";
+  item_id: string;
+  message: string;
+}
+```
+
+The tool opens the human confirmation UI. It cannot confirm a claim.
+
+---
+
+## 17. Investigation UI
+
+### Desktop
+
+- Preserve the existing catalog and visual language.
+- Add a right-side Investigation Panel approximately `320–380px` wide when investigation state exists.
+- Do not turn the application into a dashboard.
+- The panel contains:
+  - Session status.
+  - Timeline.
+  - Suggested next clue.
+  - Evidence Card.
+  - Reset action.
+
+### Mobile
+
+- Render investigation content as an in-page section or bottom sheet below search controls.
+- Do not reserve a fixed 320px side panel.
+- Keep claim confirmation readable without horizontal scrolling.
+
+### Candidate Visualization
+
+- Current candidates remain at full opacity.
+- Non-candidates may use approximately `0.35` opacity only while a session is active.
+- The current best match receives border emphasis and a small scale increase.
+- Candidate emphasis must derive from session candidate IDs.
+- Clearing the session restores all cards.
+- Respect reduced-motion preferences.
+
+### Evidence Card
+
+The card displays:
+
+- Item ID and name.
+- Match strength.
+- Match Score.
+- Matched evidence.
+- Unknown evidence.
+- Contradictions.
+- Review Match action.
+
+The card must not display evidence absent from the engine response.
+
+---
+
+## 18. Agent Investigation Timeline
+
+Example:
+
+```text
+01  Searching catalog
+    4 candidates
+
+02  Looking for useful clues
+    Attached charm can separate the candidates
+
+03  Searching again
+    Bear charm added · 1 strongest candidate
+
+04  Comparing evidence
+    LF-017 · Strong Match
+
+05  Waiting for you
+    Human claim confirmation
+```
+
+Timeline rules:
+
+- Every entry derives from an actual engine or tool result.
+- Do not add fake delays to claim that an agent called a tool it did not call.
+- Repeated calls append steps instead of replacing the entire history.
+- Reset clears the timeline.
+
+---
+
+## 19. Demo Mode
+
+`?demo=true` means Stable Environment, not Scripted Answer.
+
+Demo Mode controls only:
+
+- Fixed 30-item dataset.
+- Deterministic scoring.
+- Investigation reset at startup.
+- Claim reset at startup.
+- Investigation Panel visible.
+- No randomness.
+
+Demo Mode must not control:
+
+- Query text.
+- Candidate IDs.
+- Match score.
+- Facet result.
+- Evidence result.
+- Claim candidate.
+
+The human may enter any supported natural-language description during Demo Mode.
+
+---
+
+## 20. Error and Edge Cases
+
+### Empty Query
+
+- Human UI keeps the agent-search action disabled.
+- WebMCP returns a structured validation error.
+
+### No Candidates
+
+- Session status becomes `needs_clue` or a recovery state.
+- Facet response recommends broadening or removing a clue.
+- No item is highlighted or claimable from that search result.
+
+### One Candidate
+
+- `get_search_facets` returns `ready_to_compare` and no unnecessary question.
+
+### Stale Session
+
+- Return `{ error: "Session not found or expired." }`.
+- Do not silently mutate a different session.
+
+### Unknown Item
+
+- Return `{ error: "Item not found." }`.
+
+### WebMCP Unsupported
+
+- Preserve the full human search and browsing interface.
+- Investigation engines remain usable through the page UI.
+
+### Tool Registration Failure
+
+- Show manual browsing mode.
+- Log a concise development warning without breaking the page.
+
+---
+
+## 21. Testing Requirements
+
+### Search
+
+- At least 15 curated natural-language queries.
+- Generic retrieval test covering all 30 item names.
+- Structured category, colors, location, date, and feature tests.
+- Synonym tests.
+- Partial-word false-positive regression tests.
+- Default Top-5 and explicit limit tests.
+- Determinism test.
+- Curated Top-1 accuracy of at least 90%.
+
+Representative queries include:
+
+1. `yellow umbrella duck` → LF-003.
+2. `black backpack` → LF-007.
+3. `green backpack` → LF-008.
+4. `brown wallet` → LF-013.
+5. `house keys` → LF-015.
+6. `bear keychain` → LF-017.
+7. `red heart keychain` → LF-018.
+8. `airpods` → LF-019.
+9. `round glasses` → LF-021.
+10. `blue water bottle` → LF-023.
+11. `black cap` → LF-025.
+12. `gray scarf` → LF-027.
+13. `black gloves` → LF-028.
+14. `yellow notebook` → LF-029.
+15. `black pen` → LF-030.
+
+`black backpack with bear keychain` is a mixed-clue ambiguity test. It must return relevant candidates based on actual metadata; it must not be asserted as LF-007 with invented bear evidence.
+
+### Facets
+
+- At least 8 facet tests.
+- All-shared value produces zero discrimination.
+- All-unique values produce high discrimination with full coverage.
+- Missing-value coverage reduces facet score.
+- Known clues are excluded.
+- One candidate returns `ready_to_compare`.
+- Zero candidates returns recovery guidance.
+- Results are deterministic.
+
+### Matching and Evidence
+
+- At least 10 matching tests.
+- At least 5 contradiction tests.
+- Positive evidence increases score.
+- Explicit negative evidence decreases score.
+- Structured field conflict becomes a contradiction.
+- Unrepresented free-text evidence becomes unknown.
+- Penalties cannot reduce score below zero.
+- Evidence explanation uses the same breakdown as ranking.
+- Match strength thresholds are tested at boundaries.
+
+### Investigation
+
+- At least 8 reducer or hook tests.
+- First search creates a session.
+- Follow-up search merges clues.
+- Duplicate clues are ignored.
+- Explicit new clues override conflicts.
+- Timeline appends actual steps.
+- Stale IDs fail closed.
+- Reset clears all session state.
+- Claim state does not survive reset.
+
+### WebMCP and UI Regression
+
+- Six tools register with valid JSON Schemas.
+- `get_search_facets` reads the correct session.
+- `get_match_evidence` displays the Evidence Card.
+- Agent calls visibly update the page.
+- `request_claim` still stops at human confirmation.
+- No `confirm_claim` tool exists.
+- Original yellow umbrella flow remains a valid regression case.
+- Production build and Sites worker tests pass.
+
+---
+
+## 22. Development Phases and Commit Boundaries
+
+Development starts only after this SPEC is approved.
+
+### Phase 0 — Baseline Audit
+
+- Verify clean Git state and V1.5 test baseline.
+- Map existing search, matching, WebMCP, claim, and demo code to this SPEC.
+- Do not remove working features.
+
+No commit unless documentation changes are required.
+
+### Phase 1 — Normalization, Facets, and Evidence Primitives
+
+- Extract reusable normalization.
+- Add canonical feature handling.
+- Implement facet discrimination.
+- Implement evidence classification and score breakdown primitives.
+- Add pure unit tests.
+
+Commit message:
+
+```text
+add investigation facet and evidence engines
+```
+
+### Phase 2 — Contradiction Matching and Session State
+
+- Upgrade matching for positive, unknown, and contradiction evidence.
+- Add the single active Investigation Session reducer or hook.
+- Add progressive clue merging and timeline state.
+- Add matching and session tests.
+
+Commit message:
+
+```text
+add progressive investigation state and matching
+```
+
+### Phase 3 — WebMCP Investigation Tools
+
+- Upgrade V2 schemas for existing tools.
+- Register `get_search_facets`.
+- Register `get_match_evidence`.
+- Connect tool calls to the active session.
+- Verify direct WebMCP execution locally.
+
+Commit message:
+
+```text
+expose investigation through WebMCP tools
+```
+
+### Phase 4 — Investigation UI
+
+- Add Investigation Panel and timeline.
+- Add Evidence Card.
+- Add candidate and best-match visualization.
+- Add responsive mobile behavior.
+- Preserve the existing claim UI.
+
+Commit message:
+
+```text
+build investigation timeline and evidence UI
+```
+
+### Phase 5 — Demo, Regression, and Release
+
+- Verify Keys Investigation end to end.
+- Verify unrelated item searches.
+- Run typecheck, unit tests, production build, Sites tests, and browser checks.
+- Verify six tools on the deployed page.
+- Push and deploy only after all release checks pass.
+
+Commit message:
+
+```text
+verify and polish V2 investigation flow
 ```
 
 ---
 
-# 35. Error Handling
+## 23. V2 Acceptance Criteria
 
-## No Results
+### Search
 
-```text
-No matching items found.
+- [ ] All 30 items remain searchable.
+- [ ] No item-specific search or scoring branch exists.
+- [ ] Structured and natural-language clues work together.
+- [ ] Synonyms and singular/plural forms work for the curated vocabulary.
+- [ ] Default Top-5 ranking is deterministic.
+- [ ] Mixed clues return honest candidates without invented evidence.
 
-Try removing one detail.
-```
+### Investigation
 
-## Invalid ID
+- [ ] First search creates a session.
+- [ ] Follow-up clues refine the same session.
+- [ ] Candidate count is maintained internally.
+- [ ] High-value clues are detected deterministically.
+- [ ] Already-known clues are not requested again.
+- [ ] Timeline reflects real calls and state transitions.
 
-```text
-Item not found.
-```
+### Matching and Evidence
 
-## WebMCP Unsupported
+- [ ] Positive evidence increases score.
+- [ ] Unknown evidence is distinguished from contradiction.
+- [ ] Contradictions reduce score.
+- [ ] Score breakdown explains the final Match Score.
+- [ ] Match strength labels use defined thresholds.
+- [ ] Evidence Card never invents metadata.
 
-```text
-WebMCP isn't available in this browser.
+### WebMCP
 
-You can still browse found items manually.
-```
+- [ ] Exactly six tools register successfully.
+- [ ] Search creates or continues an investigation.
+- [ ] Facet tool recommends the next useful clue.
+- [ ] Compare tool ranks candidates with contradictions.
+- [ ] Evidence tool explains one candidate.
+- [ ] Claim tool opens human confirmation only.
 
-網站 Human UI 必須繼續正常運作。
+### Safety
 
-## Claim Error
+- [ ] No agent-callable claim confirmation exists.
+- [ ] Human confirmation remains required.
+- [ ] Reset clears claim and investigation state.
 
-```text
-Unable to start claim confirmation.
+### Testing and Release
 
-Please open the item manually.
-```
-
----
-
-# 36. Demo Mode
-
-支援：
-
-```text
-/?demo=true
-```
-
-Demo Mode：
-
-* 30 items 固定
-* LF-003 Hero Case
-* Agent Activity 預設 visible
-* Claim state reset
-* No randomness
-* Matching deterministic
-
-每次 Demo 結果必須一致。
-
----
-
-# 37. Demo Script
-
-影片目標：
-
-**90–120 seconds**
-
-## 0–10s
-
-展示 30 items。
-
-旁白：
-
-> Lost-and-found websites usually make people manually search through dozens of similar items.
+- [ ] Search, facets, matching, contradiction, session, WebMCP, and regression tests pass.
+- [ ] Curated Top-1 accuracy is at least 90%.
+- [ ] Typecheck passes.
+- [ ] Production build succeeds.
+- [ ] Sites worker tests pass.
+- [ ] Local in-app WebMCP execution succeeds.
+- [ ] Deployed Cloudflare page exposes and executes all six tools.
+- [ ] Worktree is clean after the final commit.
 
 ---
 
-## 10–20s
+## 24. V2 Completion Boundary
 
-> Agent Lost & Found exposes the same website directly to AI agents using WebMCP.
+V2 is complete only when:
 
----
+1. Multiple unrelated items can be found with natural-language descriptions.
+2. An incomplete description can produce multiple candidates.
+3. `get_search_facets` recommends a genuinely discriminating question.
+4. A follow-up human clue refines the active session.
+5. Evidence distinguishes matched, unknown, and contradictory information.
+6. The Keys Investigation demo works end to end using real `items.json` metadata.
+7. The agent stops at human claim confirmation.
 
-## 20–30s
-
-Prompt：
-
-> I lost an umbrella yesterday. It was yellow, had a wooden curved handle, and there was a small duck on it.
-
----
-
-## 30–45s
-
-Agent Activity：
-
-```text
-search_lost_items
-
-5 candidates found
-```
+Only after V2 is complete may V3 consider multimodal investigation or image-derived clues.
 
 ---
 
-## 45–55s
+## 25. Official Technical References
 
-```text
-get_item_details
+Implementation must be checked against the latest official sources at development time:
 
-LF-003
-```
+- [Chrome WebMCP overview](https://developer.chrome.com/docs/ai/webmcp)
+- [Chrome WebMCP imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api)
+- [Chrome WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices)
+- [Chrome WebMCP tool security](https://developer.chrome.com/docs/ai/webmcp/secure-tools)
+- [WebMCP Community Group specification](https://webmachinelearning.github.io/webmcp/)
+- [WebMCP Community Group repository](https://github.com/webmachinelearning/webmcp)
 
-Gallery：
-
-LF-003 自動 highlight。
-
----
-
-## 55–70s
-
-```text
-compare_items
-
-LF-003
-
-96% match
-```
-
-Agent 說明：
-
-```text
-Yellow
-Wooden handle
-Duck illustration
-```
-
----
-
-## 70–85s
-
-```text
-request_claim
-```
-
-ClaimModal 出現。
-
----
-
-## 85–100s
-
-旁白：
-
-> The agent can search, inspect and compare.
-
-> But it cannot claim the item for me.
-
-人類：
-
-```text
-Confirm Claim
-```
-
----
-
-## 100–110s
-
-Ending：
-
-```text
-Agent Lost & Found
-
-Agents search.
-Humans decide.
-```
-
----
-
-# 38. Acceptance Criteria
-
-* [ ] 30 icons loaded
-* [ ] LF-001 → LF-030 mapping correct
-* [ ] 30 item metadata records
-* [ ] Gallery renders correctly
-* [ ] Category filters work
-* [ ] Human search works
-* [ ] Item detail works
-* [ ] WebMCP detected
-* [ ] `search_lost_items` works
-* [ ] `get_item_details` works
-* [ ] Agent can trigger LF-003 highlight
-* [ ] `compare_items` works
-* [ ] Matching is deterministic
-* [ ] Matched features returned
-* [ ] `request_claim` works
-* [ ] ClaimModal triggered
-* [ ] Agent cannot confirm claim
-* [ ] Human can confirm claim
-* [ ] Agent Activity updates
-* [ ] Unsupported browser fallback works
-* [ ] Mobile usable
-* [ ] Demo Mode works
-* [ ] Cloudflare deployment works
-* [ ] ChatGPT in-app browser tested
-* [ ] WebMCP-enabled Chrome tested
-* [ ] Public GitHub repository
-* [ ] Open-source LICENSE
-* [ ] README contains testing instructions
-* [ ] Demo video prepared
-
----
-
-# 39. Build Priority
-
-## P0 — Foundation
-
-```text
-React
-↓
-Tailwind
-↓
-30 icons
-↓
-items.json
-↓
-Gallery
-```
-
-## P1 — Matching
-
-```text
-Search
-↓
-Filters
-↓
-matching.ts
-```
-
-## P2 — WebMCP Core
-
-```text
-search_lost_items
-↓
-get_item_details
-```
-
-**Do not continue until these work.**
-
-## P3 — Agent Experience
-
-```text
-highlight
-↓
-compare_items
-↓
-Agent Activity
-```
-
-## P4 — Human-in-the-loop
-
-```text
-request_claim
-↓
-ClaimModal
-↓
-Confirm Claim
-```
-
-## P5 — Submission
-
-```text
-Visual polish
-↓
-Cloudflare
-↓
-README
-↓
-Testing
-↓
-Demo Video
-```
-
----
-
-# 40. One-Day Build Rule
-
-如果時間不足，按照以下順序砍：
-
-```text
-Animations
-↓
-Advanced filters
-↓
-Item Detail polish
-↓
-Recently Found
-↓
-Mobile polish
-```
-
-不得砍：
-
-```text
-WebMCP
-search_lost_items
-get_item_details
-compare_items
-request_claim
-Human Confirmation
-```
-
----
-
-# 41. Definition of Done
-
-MVP 最重要的驗收場景：
-
-使用者：
-
-> I lost an umbrella yesterday. It was yellow, had a wooden curved handle, and there was a small duck on it.
-
-Agent：
-
-```text
-Search
-↓
-Inspect
-↓
-Compare
-↓
-LF-003
-↓
-Highlight
-↓
-Request Claim
-```
-
-網站：
-
-```text
-Possible Match Found
-```
-
-人類：
-
-```text
-Confirm Claim
-```
-
-如果這條流程能夠在正式部署環境中穩定重現：
-
-**MVP 即視為完成。**
-
----
-
-# 42. Scope Freeze
-
-Version 1.1 完成以前，不加入任何新功能。
-
-禁止臨時加入：
-
-```text
-Vision
-RAG
-Database
-Login
-Maps
-Real claims
-Chatbot
-LLM API
-Admin
-```
-
-任何新想法統一移至：
-
-```text
-V2_BACKLOG.md
-```
-
-而不是修改 MVP。
-
-最終產品必須始終能用一句話解釋：
-
-> **Agents search. Humans decide.**
+Because WebMCP remains experimental, current implementation code and official documentation—not copied experimental API examples—are the source of truth for API details.
