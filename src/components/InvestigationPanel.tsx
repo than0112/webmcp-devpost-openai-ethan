@@ -44,3 +44,10 @@ export function InvestigationPanel({ session, facets, evidence, onReset, onRevie
     </aside>
   );
 }
+
+export function InvestigationStandby({ onRun }: { onRun: () => void }) {
+  return <aside className="investigation-panel standby" aria-label="Demo mode ready">
+    <div className="investigation-header"><div><span className="panel-kicker"><Sparkle weight="fill" /> Stable demo mode</span><h3>Ready to investigate</h3></div></div>
+    <div className="standby-copy"><MagnifyingGlass weight="duotone" /><h4>Any of the 30 items can be searched.</h4><p>Describe what you remember. Demo mode keeps the dataset and scoring stable—it never forces a scripted result.</p><button className="review-match" onClick={onRun}>Run keys investigation</button></div>
+  </aside>;
+}

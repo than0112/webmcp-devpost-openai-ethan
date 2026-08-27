@@ -103,6 +103,7 @@ export function createWebMCPTools(items: LostItem[], callbacks: WebMCPCallbacks,
       annotations: { readOnlyHint: true, untrustedContentHint: false },
       execute: (input: SearchLostItemsInput, context) => {
         context?.signal?.throwIfAborted();
+        if (!input.query?.trim()) return { error: { code: "validation_error", message: "query must be a non-empty string." } };
         const incoming = cluesFromSearch(input);
         const current = input.session_id ? requireSession(store, input.session_id) : null;
         if (input.session_id && !current) return staleSessionError(input.session_id);

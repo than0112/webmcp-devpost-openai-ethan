@@ -62,8 +62,17 @@
 
 ## Official WebMCP baseline checked on 2026-08-27
 
-- Chrome documentation last updated 2026-08-20 uses `document.modelContext.registerTool()`.
+- Chrome documentation last updated 2026-08-18 uses `document.modelContext.registerTool()` and marks `navigator.modelContext` deprecated in Chrome 150.
 - Imperative tool callbacks receive cancellation context as the second argument (`{ signal }`).
 - Read-only tools use `annotations.readOnlyHint: true`; stateful initiation uses `false`.
 - Local Chrome testing requires `chrome://flags/#enable-webmcp-testing`; Chrome 149+ can use the origin trial.
 - WebMCP remains experimental, so the implementation must feature-detect it and keep manual browsing functional.
+
+## Milestone 7 — V2 progressive investigation
+
+- [x] Add normalized clue, facet discrimination, and evidence primitives.
+- [x] Add contradiction-aware matching and one active progressive session.
+- [x] Register exactly six approved WebMCP tools using the current official imperative API.
+- [x] Add the responsive Investigation Panel, real timeline, suggested clue, Evidence Card, candidate emphasis, and reset.
+- [x] Add the two-round Keys Investigation without hardcoding its candidate ID, score, or evidence.
+- [x] Verify 15+ curated Top-1 cases, all 30 names, sessions, facets, contradictions, all six local tools, human confirmation, responsive layout, build, and Sites packaging.

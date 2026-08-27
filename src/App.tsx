@@ -11,17 +11,19 @@ import { ItemDetail } from "./components/ItemDetail";
 import { EmptyState } from "./components/EmptyState";
 import { AgentActivity, type ActivityEntry } from "./components/AgentActivity";
 import { ClaimModal } from "./components/ClaimModal";
-import { InvestigationPanel } from "./components/InvestigationPanel";
+import { InvestigationPanel, InvestigationStandby } from "./components/InvestigationPanel";
 import { compareItems, compareItemsWithClues, descriptionToClues } from "./lib/matching";
 import { useWebMCP } from "./hooks/useWebMCP";
 import type { MatchResult, UserDescription } from "./types/item";
 import type { InvestigationSession } from "./types/investigation";
 import { createInvestigationSession, createSearchStep } from "./lib/investigation";
 import { getSearchFacets } from "./lib/facets";
+import { buildKeysInvestigation, KEYS_DEMO_FOLLOWUP, KEYS_DEMO_INITIAL_QUERY } from "./lib/demo";
 
 const items = itemsData as LostItem[];
 const recentIds = ["LF-003", "LF-007", "LF-015", "LF-019"];
-const DEFAULT_DEMO_QUERY = "yellow umbrella with a duck and wooden handle";
+const DEFAULT_DEMO_QUERY = `${KEYS_DEMO_INITIAL_QUERY}. ${KEYS_DEMO_FOLLOWUP}`;
+const demoMode = new URLSearchParams(window.location.search).get("demo") === "true";
 
 export function App() {
   const galleryRef = useRef<HTMLElement>(null);
@@ -79,7 +81,7 @@ export function App() {
     const ranked = selectRelevantResults(rankItems(items, { query: naturalLanguage }, { strictFilters: false }));
     const clues = descriptionToClues({ query: naturalLanguage });
     const candidateIds = ranked.map((result) => result.item.id);
-    const baseSession = createInvestigationSession({ id: crypto.randomUUID(), originalQuery: naturalLanguage, clues, candidateIds, label: "Searching catalog" });
+    const baseSession = createInvestigationSession({ id: demoMode ? "demo-session" : crypto.randomUUID(), originalQuery: naturalLanguage, clues, candidateIds, label: "Searching catalog", createdAt: demoMode ? 1 : undefined });
     const usefulFacets = getSearchFacets(ranked.map((result) => result.item), clues);
     const [best] = compareItemsWithClues(ranked.map((result) => result.item), clues);
     const timeline = [...baseSession.searches];
@@ -115,6 +117,29 @@ export function App() {
     }
   }, [addActivity, browse, highlight, startClaim]);
 
+  const runKeysDemo = useCallback(() => {
+    const result = buildKeysInvestigation(items, { id: "demo-session", startTime: 1 });
+    if (!result) return;
+    const visibleQuery = `${KEYS_DEMO_INITIAL_QUERY}. ${KEYS_DEMO_FOLLOWUP}`;
+    setActivity([
+      { tool: "search_lost_items", message: `${result.session.searches[0].candidateCount} key candidates`, state: "done" },
+      { tool: "get_search_facets", message: result.facets[0]?.question_hint ?? "Ready to compare", state: "done" },
+      { tool: "compare_items", message: `${Math.round(result.evidence.score * 100)}% match · ${result.evidence.item.id}`, state: "done" },
+      { tool: "get_match_evidence", message: `${result.evidence.match_strength} · ${result.evidence.item.id}`, state: "done" },
+      { tool: "request_claim", message: "Waiting for human", state: "active" },
+    ]);
+    setQuery(visibleQuery);
+    setCategory("all");
+    setSelectedItem(null);
+    setInvestigation(result.session);
+    setEvidence(result.evidence);
+    setClaimCandidate(result.evidence.item);
+    setClaimMatch(result.evidence);
+    setClaimConfirmed(false);
+    browse();
+    highlight(result.evidence.item.id);
+  }, [browse, highlight]);
+
   const resetInvestigation = useCallback(() => {
     resetWebMCP();
     setInvestigation(null);
@@ -128,7 +153,7 @@ export function App() {
     setCategory("all");
   }, [resetWebMCP]);
 
-  const previewDemo = useCallback(() => runAgentSearch(query || DEFAULT_DEMO_QUERY, true), [query, runAgentSearch]);
+  const previewDemo = useCallback(() => query.trim() ? runAgentSearch(query, true) : runKeysDemo(), [query, runAgentSearch, runKeysDemo]);
 
   return (
     <div className="app-shell">
@@ -150,7 +175,7 @@ export function App() {
         <section className="gallery-section" ref={galleryRef} aria-labelledby="gallery-title">
           <div className="section-heading"><div><span className="section-kicker">Community catalog</span><h2 id="gallery-title">Found items</h2></div><p><strong>{items.length} items</strong> are currently waiting to find their owners.</p></div>
           <SearchFilters query={query} category={category} onQuery={setQuery} onCategory={setCategory} onAgentSearch={() => runAgentSearch(query)} />
-          <div className={investigation ? "investigation-layout active" : "investigation-layout"}>
+          <div className={investigation || demoMode ? "investigation-layout active" : "investigation-layout"}>
             <div className="catalog-column">
               <div className="results-meta"><span>{investigation ? investigation.candidateIds.length : filtered.length} {investigation?.candidateIds.length === 1 || (!investigation && filtered.length === 1) ? "match" : "matches"}</span><span>Updated Aug 27, 2026</span></div>
               {filtered.length ? <div className="item-grid">{filtered.map((item) => {
@@ -159,6 +184,7 @@ export function App() {
               })}</div> : <EmptyState onReset={() => { setQuery(""); setCategory("all"); }} />}
             </div>
             {investigation && <InvestigationPanel session={investigation} facets={facets} evidence={evidence} onReset={resetInvestigation} onReview={(itemId) => setSelectedItem(items.find((item) => item.id === itemId) ?? null)} />}
+            {!investigation && demoMode && <InvestigationStandby onRun={runKeysDemo} />}
           </div>
         </section>
       </main>

@@ -1,5 +1,5 @@
 const STOP_WORDS = new Set([
-  "a", "an", "and", "at", "can", "find", "for", "from", "i", "in", "is", "it", "lost", "me", "my", "of", "on", "please", "the", "this", "to", "was", "with",
+  "a", "an", "and", "at", "can", "find", "for", "from", "i", "in", "is", "it", "lost", "me", "my", "of", "on", "please", "something", "the", "this", "to", "was", "with",
 ]);
 
 const PHRASE_ALIASES: Array<[string, string]> = [

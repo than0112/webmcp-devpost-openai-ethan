@@ -2,14 +2,15 @@
 
 **Agents search. Humans decide.**
 
-Agent Lost & Found is a WebMCP-enabled civic lost-and-found catalog built for The WebMCP Challenge. People can browse 30 reported items through a responsive interface, while browser agents can use four structured tools to search, inspect, compare, and request a claim confirmation.
+Agent Lost & Found is a WebMCP-enabled civic lost-and-found catalog built for The WebMCP Challenge. People can browse 30 reported items through a responsive interface, while browser agents can use six structured tools to investigate, inspect, compare, explain, and request a claim confirmation.
 
 The structured source of truth is `src/data/items.json`. The matching engine does not use computer vision, an LLM, embeddings, or a backend.
 
 ## What works
 
 - Generic natural-language search across all 30 items, plus category filters and item details.
-- Deterministic weighted ranking with explainable matched terms and fields.
+- One active progressive investigation with normalized clues, candidate history, useful facets, and a visible timeline.
+- Deterministic weighted ranking with matched, unknown, and contradiction evidence.
 - Current imperative WebMCP API through `document.modelContext.registerTool()`.
 - Visible Agent Activity for any user-entered query; demo mode stabilizes data and never forces a showcase item.
 - Human-only claim confirmation. No WebMCP tool can complete a claim.
@@ -21,7 +22,9 @@ The structured source of truth is `src/data/items.json`. The matching engine doe
 | --- | --- | --- |
 | `search_lost_items` | Rank the full catalog by natural-language query, structured clues, features, and limit | Read-only |
 | `get_item_details` | Return one complete item and highlight it in the gallery | Read-only |
-| `compare_items` | Rank candidates with deterministic weighted clues | Read-only |
+| `get_search_facets` | Recommend up to three useful follow-up clues from the active candidates | Read-only |
+| `compare_items` | Rank candidates with positive, unknown, and contradiction evidence | Read-only |
+| `get_match_evidence` | Explain one item with the exact score breakdown used for ranking | Read-only |
 | `request_claim` | Open the human confirmation UI | Starts UI state only |
 
 There is intentionally no `confirm_claim` tool.
@@ -49,11 +52,11 @@ The API is experimental and changes over time. These steps reflect the official 
 1. Use a Chrome build with WebMCP support.
 2. Open `chrome://flags/#enable-webmcp-testing`, enable the flag, and relaunch Chrome.
 3. Run the app locally and open it in Chrome, or deploy it to an HTTPS origin.
-4. Use Chrome's Model Context Tool Inspector extension or Chrome DevTools WebMCP tooling to inspect the four registered tools.
-5. Try natural-language prompts such as “I lost my brown wallet”, “white wireless earbuds”, or the yellow duck umbrella hero prompt.
+4. Use Chrome's Model Context Tool Inspector extension or Chrome DevTools WebMCP tooling to inspect the six registered tools.
+5. Try “I lost something on a key ring,” ask for a useful facet, then add “It had a small bear charm.” Also try unrelated prompts such as “I lost my brown wallet” or “white wireless earbuds.”
 6. Verify the expected top item is highlighted, the score is calculated from matching evidence, and `request_claim` stops at the human confirmation dialog.
 
-For an in-app browser with WebMCP enabled, open the site and use the same prompt. During development, all four page-defined tools were discovered and executed successfully in the ChatGPT/Codex in-app browser.
+For an in-app browser with WebMCP enabled, open the site and use the same prompt. During development, all six page-defined tools were discovered and executed successfully in the ChatGPT/Codex in-app browser.
 
 ## Cloudflare Pages
 
@@ -77,7 +80,11 @@ The engine tokenizes the query, removes conversational stop words, scores every 
 - Area: +10
 - Description keyword: +5
 
-Structured date evidence adds +15. Scores and normalized confidence are calculated at runtime; there are no item-ID-specific or showcase-query-specific branches.
+Structured date evidence adds +15. Category, color, location, date, and explicit negative contradictions apply the penalties defined in `SPEC.md`. Scores and normalized confidence are calculated at runtime; there are no item-ID-specific or showcase-query-specific branches.
+
+## Stable demo mode
+
+Open the app with `?demo=true` to keep the 30-item dataset, scoring, session ID, and timeline deterministic. Demo mode does not fill the search box or select a result. The optional Keys Investigation button runs the approved two-round example through the same search, facet, matching, and evidence engines used by every other query.
 
 ## Current official references
 
@@ -92,7 +99,7 @@ Because WebMCP remains a proposed standard, implementation code—not the frozen
 
 ## Project status
 
-Implementation, tests, production build, Sites packaging, in-app WebMCP execution, public GitHub source, Cloudflare Pages deployment, and the human confirmation flow are verified. Recording the final submission video remains a release action.
+V2 release verification covers type checking, unit and regression tests, production and Sites builds, responsive browser checks, all six local WebMCP executions, deployed-tool discovery, and the human-only confirmation boundary.
 
 ## License
 

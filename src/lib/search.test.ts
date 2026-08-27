@@ -27,6 +27,11 @@ describe("searchItems", () => {
     ["blue water bottle", "LF-023"],
     ["gray scarf", "LF-027"],
     ["black pen", "LF-030"],
+    ["red heart keychain", "LF-018"],
+    ["airpods", "LF-019"],
+    ["black cap", "LF-025"],
+    ["black gloves", "LF-028"],
+    ["yellow notebook", "LF-029"],
   ])("ranks '%s' as %s without an ID-specific branch", (query, expectedId) => {
     expect(rankItems(items, { query })[0]?.item.id).toBe(expectedId);
   });
@@ -44,5 +49,13 @@ describe("searchItems", () => {
 
   it("resolves demo-relative dates deterministically", () => {
     expect(resolveDate("yesterday")).toBe("2026-08-26");
+  });
+
+  it("supports structured location and feature clues", () => {
+    expect(rankItems(items, { location: "Children's Library", features: ["bear charm"] })[0]?.item.id).toBe("LF-017");
+  });
+
+  it("does not let partial words create location matches", () => {
+    expect(rankItems(items, { query: "water" }).some((result) => result.item.found_area === "Waterfront")).toBe(false);
   });
 });

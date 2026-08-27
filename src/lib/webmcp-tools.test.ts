@@ -26,6 +26,18 @@ describe("V2 WebMCP tools", () => {
     expect(h.session()?.searches).toHaveLength(1);
   });
 
+  it("returns a structured validation error for an empty query", async () => {
+    const output = await harness().tool("search_lost_items").execute({ query: "  " }) as any;
+    expect(output.error.code).toBe("validation_error");
+  });
+
+  it("defaults to Top-5 and honors an explicit smaller limit", async () => {
+    const defaultOutput = await harness().tool("search_lost_items").execute({ query: "black" }) as any;
+    const explicitOutput = await harness().tool("search_lost_items").execute({ query: "black", limit: 2 }) as any;
+    expect(defaultOutput.results).toHaveLength(5);
+    expect(explicitOutput.results).toHaveLength(2);
+  });
+
   it("continues the same session with a new clue", async () => {
     const h = harness();
     await h.tool("search_lost_items").execute({ query: "keys" });
