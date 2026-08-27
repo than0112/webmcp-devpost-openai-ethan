@@ -25,10 +25,10 @@
 
 ## Milestone 2 — Deterministic search and matching
 
-- [ ] Implement structured item search.
-- [ ] Implement weighted deterministic comparison with matched and missing clues.
-- [ ] Add automated tests for search, matching, and the LF-003 hero scenario.
-- [ ] Verify that the score is calculated rather than hardcoded.
+- [x] Implement structured item search.
+- [x] Implement weighted deterministic comparison with matched and missing clues.
+- [x] Add automated tests for search, matching, and the LF-003 hero scenario.
+- [x] Verify that the score is calculated rather than hardcoded.
 
 ## Milestone 3 — WebMCP and agent experience
 
