@@ -32,17 +32,17 @@
 
 ## Milestone 3 — WebMCP and agent experience
 
-- [ ] Register four tools with the current official `document.modelContext` imperative API.
-- [ ] Add TypeScript declarations and progressive enhancement fallback.
-- [ ] Connect tool calls to activity updates, card scrolling, highlighting, and comparison results.
-- [ ] Add demo mode with a deterministic visible agent walkthrough.
-- [ ] Verify registration and local tool execution where supported.
+- [x] Register four tools with the current official `document.modelContext` imperative API.
+- [x] Add TypeScript declarations and progressive enhancement fallback.
+- [x] Connect tool calls to activity updates, card scrolling, highlighting, and comparison results.
+- [x] Add demo mode with a deterministic visible agent walkthrough.
+- [x] Verify registration and local tool execution where supported.
 
 ## Milestone 4 — Human claim flow
 
-- [ ] Make `request_claim` open a confirmation UI without completing a claim.
-- [ ] Add human-only claim confirmation and success state.
-- [ ] Verify the agent cannot invoke the final confirmation.
+- [x] Make `request_claim` open a confirmation UI without completing a claim.
+- [x] Add human-only claim confirmation and success state.
+- [x] Verify the agent cannot invoke the final confirmation.
 
 ## Milestone 5 — Release and submission readiness
 

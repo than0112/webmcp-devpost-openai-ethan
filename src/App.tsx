@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ArrowRight, CirclesFour, HandTap, Lightning } from "@phosphor-icons/react";
 import itemsData from "./data/items.json";
 import type { LostItem } from "./types/item";
@@ -9,6 +9,11 @@ import { SearchFilters } from "./components/SearchFilters";
 import { ItemCard } from "./components/ItemCard";
 import { ItemDetail } from "./components/ItemDetail";
 import { EmptyState } from "./components/EmptyState";
+import { AgentActivity, type ActivityEntry } from "./components/AgentActivity";
+import { ClaimModal } from "./components/ClaimModal";
+import { compareItems } from "./lib/matching";
+import { useWebMCP } from "./hooks/useWebMCP";
+import type { MatchResult, UserDescription } from "./types/item";
 
 const items = itemsData as LostItem[];
 const recentIds = ["LF-003", "LF-007", "LF-015", "LF-019"];
@@ -19,17 +24,38 @@ export function App() {
   const [category, setCategory] = useState("all");
   const [selectedItem, setSelectedItem] = useState<LostItem | null>(null);
   const [highlightedItem, setHighlightedItem] = useState<string | null>(null);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [claimCandidate, setClaimCandidate] = useState<LostItem | null>(null);
+  const [claimMatch, setClaimMatch] = useState<MatchResult | undefined>();
+  const [claimConfirmed, setClaimConfirmed] = useState(false);
 
   const filtered = useMemo(() => searchItems(items, { query, category: category === "all" ? undefined : category }), [query, category]);
   const recent = recentIds.map((id) => items.find((item) => item.id === id)!).filter(Boolean);
   const browse = () => galleryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const addActivity = useCallback((entry: ActivityEntry) => setActivity((current) => [...current.filter((item) => item.tool !== entry.tool), entry]), []);
+  const highlight = useCallback((id: string) => {
+    setHighlightedItem(id);
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+    window.setTimeout(() => setHighlightedItem((current) => current === id ? null : current), 1500);
+  }, []);
+  const startClaim = useCallback((item: LostItem, description?: UserDescription) => {
+    const [match] = compareItems([item], description ?? { category: "umbrella", color: "yellow", date: "yesterday", features: ["wooden handle", "duck"] });
+    setSelectedItem(null); setClaimCandidate(item); setClaimMatch(match); setClaimConfirmed(false);
+  }, []);
+  const webmcpCallbacks = useMemo(() => ({ onActivity: addActivity, onHighlight: highlight, onClaim: startClaim }), [addActivity, highlight, startClaim]);
+  const webmcpSupported = useWebMCP(items, webmcpCallbacks);
+
   const previewDemo = () => {
+    const hero = items.find((item) => item.id === "LF-003")!;
+    const heroDescription = { category: "umbrella", color: "yellow", date: "yesterday", features: ["wooden handle", "duck"] };
+    setActivity([]);
     setCategory("umbrella");
-    setQuery("yellow duck wooden handle");
-    setHighlightedItem("LF-003");
+    setQuery("");
     browse();
-    window.setTimeout(() => document.getElementById("LF-003")?.scrollIntoView({ behavior: "smooth", block: "center" }), 450);
-    window.setTimeout(() => setHighlightedItem(null), 1800);
+    window.setTimeout(() => addActivity({ tool: "search_lost_items", message: "Found 5 umbrellas", state: "done" }), 350);
+    window.setTimeout(() => { highlight("LF-003"); addActivity({ tool: "get_item_details", message: "Inspecting LF-003", state: "done" }); }, 1000);
+    window.setTimeout(() => addActivity({ tool: "compare_items", message: "96% match · LF-003", state: "done" }), 1850);
+    window.setTimeout(() => { addActivity({ tool: "request_claim", message: "Waiting for human", state: "active" }); startClaim(hero, heroDescription); }, 2700);
   };
 
   return (
@@ -57,7 +83,9 @@ export function App() {
         </section>
       </main>
       <footer><div className="brand footer-brand">Agent Lost <i>&amp;</i> Found</div><p>Agents search. <strong>Humans decide.</strong></p><span>Built for the agentic web.</span></footer>
-      {selectedItem && <ItemDetail item={selectedItem} onClose={() => setSelectedItem(null)} onClaim={() => {}} />}
+      <AgentActivity supported={webmcpSupported} entries={activity} onDemo={previewDemo} />
+      {selectedItem && <ItemDetail item={selectedItem} onClose={() => setSelectedItem(null)} onClaim={() => startClaim(selectedItem)} />}
+      {claimCandidate && <ClaimModal item={claimCandidate} match={claimMatch} confirmed={claimConfirmed} onCancel={() => { setClaimCandidate(null); setClaimConfirmed(false); }} onConfirm={() => { setClaimConfirmed(true); setActivity((current) => current.map((entry) => entry.tool === "request_claim" ? { ...entry, message: "Confirmed by human", state: "done" } : entry)); }} />}
     </div>
   );
 }
