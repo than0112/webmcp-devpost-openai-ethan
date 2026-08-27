@@ -13,15 +13,15 @@
 
 - [x] Initialize Git.
 - [x] Commit `SPEC.md` v1.1.
-- [ ] Commit this task plan.
+- [x] Commit this task plan.
 
 ## Milestone 1 — Foundation and catalog
 
-- [ ] Bootstrap React, Vite, and TypeScript.
-- [ ] Add responsive visual system and item image assets.
-- [ ] Create all 30 metadata records and validate LF-001 through LF-030 mappings.
-- [ ] Build header, hero, recently found section, search, filters, gallery, and item details.
-- [ ] Verify production build and core browsing interactions.
+- [x] Bootstrap React, Vite, and TypeScript.
+- [x] Add responsive visual system and item image assets.
+- [x] Create all 30 metadata records and validate LF-001 through LF-030 mappings.
+- [x] Build header, hero, recently found section, search, filters, gallery, and item details.
+- [x] Verify production build and core browsing interactions.
 
 ## Milestone 2 — Deterministic search and matching
 
