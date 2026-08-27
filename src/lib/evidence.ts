@@ -48,11 +48,12 @@ export function evaluateItemEvidence(item: LostItem, clues: SearchClue[]): Evide
   let penalty = 0;
   let possible = 0;
 
-  for (const clue of clues) {
+  const priority: Record<SearchClue["kind"], number> = { negative: 100, category: 40, feature: 30, color: 20, location: 15, date: 15, query: 5 };
+  const orderedClues = clues.map((clue, index) => ({ clue, index })).sort((left, right) => priority[right.clue.kind] - priority[left.clue.kind] || left.index - right.index);
+  for (const { clue } of orderedClues) {
     const normalized = normalizeClue(clue.value);
-    const key = `${clue.kind}:${normalized}`;
-    if (!normalized || seen.has(key)) continue;
-    seen.add(key);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
 
     if (clue.kind === "negative") {
       if (hasAllTokens(searchableMetadata(item), clue.value)) {
@@ -89,4 +90,3 @@ export function getMatchStrength(score: number): MatchStrength {
   if (score >= 0.4) return "weak";
   return "unlikely";
 }
-

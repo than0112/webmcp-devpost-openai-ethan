@@ -10,6 +10,7 @@ describe("investigation session", () => {
   });
   it("deduplicates normalized clues", () => expect(mergeSearchClues([clue("feature", "Bear")], [clue("feature", "bear")])).toHaveLength(1));
   it("lets an explicit structured clue replace an older value", () => expect(mergeSearchClues([clue("color", "black")], [clue("color", "brown")])).toEqual([clue("color", "brown")]));
+  it("preserves multiple explicit colors supplied together", () => expect(mergeSearchClues([clue("color", "green")], [clue("color", "black"), clue("color", "silver")])).toEqual([clue("color", "black"), clue("color", "silver")]));
   it("accumulates independent feature clues", () => expect(mergeSearchClues([clue("feature", "bear")], [clue("feature", "silver ring")])).toHaveLength(2));
   it("appends a progressive search step", () => {
     const initial = createInvestigationSession({ id: "s1", originalQuery: "keys", clues: [], candidateIds: ["LF-015", "LF-017"], createdAt: 10 });

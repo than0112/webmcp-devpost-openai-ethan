@@ -19,6 +19,7 @@ export interface SearchInput {
   query?: string;
   category?: string;
   color?: string;
+  colors?: string[];
   location?: string;
   date?: string;
   features?: string[];
@@ -29,6 +30,7 @@ export interface UserDescription {
   query?: string;
   category?: string;
   color?: string;
+  colors?: string[];
   location?: string;
   date?: string;
   features?: string[];

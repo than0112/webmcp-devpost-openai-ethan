@@ -12,6 +12,7 @@ export function descriptionToClues(description: UserDescription, negativeClues: 
   for (const token of [...new Set(tokenize(description.query ?? ""))]) add("query", token, "query");
   add("category", description.category);
   add("color", description.color);
+  for (const color of description.colors ?? []) add("color", color);
   add("location", description.location);
   add("date", resolveDate(description.date));
   for (const feature of description.features ?? []) add("feature", feature);
@@ -25,7 +26,11 @@ export function scoreFromEvidence(earned: number, penalty: number, possible: num
 }
 
 export function compareItem(item: LostItem, description: UserDescription, negativeClues: string[] = []): MatchResult {
-  const evidence = evaluateItemEvidence(item, descriptionToClues(description, negativeClues));
+  return compareItemWithClues(item, descriptionToClues(description, negativeClues));
+}
+
+export function compareItemWithClues(item: LostItem, clues: SearchClue[]): MatchResult {
+  const evidence = evaluateItemEvidence(item, clues);
   const score = scoreFromEvidence(evidence.earned, evidence.penalty, evidence.possible);
   return {
     item,
@@ -41,7 +46,11 @@ export function compareItem(item: LostItem, description: UserDescription, negati
 }
 
 export function compareItems(items: LostItem[], description: UserDescription, negativeClues: string[] = []): MatchResult[] {
+  return compareItemsWithClues(items, descriptionToClues(description, negativeClues));
+}
+
+export function compareItemsWithClues(items: LostItem[], clues: SearchClue[]): MatchResult[] {
   return items
-    .map((item) => compareItem(item, description, negativeClues))
+    .map((item) => compareItemWithClues(item, clues))
     .sort((left, right) => right.score - left.score || right.matched.length - left.matched.length || left.item.id.localeCompare(right.item.id));
 }

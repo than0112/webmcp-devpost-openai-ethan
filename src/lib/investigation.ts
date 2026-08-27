@@ -11,10 +11,6 @@ export function mergeSearchClues(existing: SearchClue[], incoming: SearchClue[])
     const normalized = normalizeClue(clue.value);
     const key = `${clue.kind}:${normalized}`;
     if (!normalized || seen.has(key)) continue;
-    if (SINGLE_VALUE_KINDS.has(clue.kind)) {
-      const previous = merged.findIndex((candidate) => candidate.kind === clue.kind);
-      if (previous >= 0) merged.splice(previous, 1);
-    }
     merged.push({ ...clue, value: clue.value.trim() });
     seen.add(key);
   }
