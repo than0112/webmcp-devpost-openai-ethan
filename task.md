@@ -1,78 +1,431 @@
-# Agent Lost & Found — MVP Tasks
+# Agent Lost & Found — V3 Development Tasks
 
-## Working rules
+**Source of truth:** `SPEC.md` V3.0 Approved
 
-- Keep `SPEC.md` v1.1 frozen; put later ideas in `V2_BACKLOG.md`.
-- Use `src/data/items.json` as the single structured source of truth.
-- Implement against the latest official WebMCP specification and Chrome documentation checked at build time.
-- Preserve a fully usable human interface when WebMCP is unavailable.
-- Keep the final claim action human-only.
-- Make one Git commit after every completed, verified development milestone.
+**Baseline:** commit `4265b4e`
 
-## Milestone 0 — Repository setup
+**Mode:** incremental development; preserve the verified V2 implementation
 
-- [x] Initialize Git.
-- [x] Commit `SPEC.md` v1.1.
-- [x] Commit this task plan.
+**Commit rule:** complete and verify exactly one task, update this checklist, then create its listed Git commit before starting the next task.
 
-## Milestone 1 — Foundation and catalog
+## Global constraints
 
-- [x] Bootstrap React, Vite, and TypeScript.
-- [x] Add responsive visual system and item image assets.
-- [x] Create all 30 metadata records and validate LF-001 through LF-030 mappings.
-- [x] Build header, hero, recently found section, search, filters, gallery, and item details.
-- [x] Verify production build and core browsing interactions.
+- Reuse the existing search, matching, investigation, evidence, UI, and WebMCP paths; do not build parallel V3 engines.
+- Keep `src/data/items.json` authoritative and never add query-specific or item-ID-specific result branches.
+- Check the current official WebMCP specification and Chrome documentation before changing the browser API integration.
+- Keep all agent-facing and submission-facing materials in English. The application may natively support English and Traditional Chinese.
+- Preserve a complete manual experience when WebMCP is unavailable.
+- `request_claim` may open review state only. Never register `confirm_claim`; only a human click may finish confirmation.
+- Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` compatible with Sites.
+- Do not push or deploy until Task 12 passes.
+- If a P0 requirement or safety rule cannot be implemented as specified, stop before committing and report the deviation.
 
-## Milestone 2 — Deterministic search and matching
+## Standard verification
 
-- [x] Implement structured item search.
-- [x] Implement weighted deterministic comparison with matched and missing clues.
-- [x] Add automated tests for search, matching, and the LF-003 hero scenario.
-- [x] Verify that the score is calculated rather than hardcoded.
+Unless a task narrows the scope, its final verification includes:
 
-## Milestone 3 — WebMCP and agent experience
+```powershell
+npm run typecheck
+npm test -- --run
+npm run build
+npm run test:sites
+```
 
-- [x] Register four tools with the current official `document.modelContext` imperative API.
-- [x] Add TypeScript declarations and progressive enhancement fallback.
-- [x] Connect tool calls to activity updates, card scrolling, highlighting, and comparison results.
-- [x] Add demo mode with a deterministic visible agent walkthrough.
-- [x] Verify registration and local tool execution where supported.
+The task commit is created only after all required checks pass.
 
-## Milestone 4 — Human claim flow
+---
 
-- [x] Make `request_claim` open a confirmation UI without completing a claim.
-- [x] Add human-only claim confirmation and success state.
-- [x] Verify the agent cannot invoke the final confirmation.
+## Task 0 — Freeze the approved V3 plan
 
-## Milestone 5 — Release and submission readiness
+- [x] Mark `SPEC.md` as approved without changing its accepted P0 scope.
+- [x] Replace the legacy V1/V2 task plan with this V3 checklist.
+- [x] Confirm Git HEAD is the V2 baseline commit `4265b4e`.
+- [x] Confirm only the approved planning files are staged for this task.
 
-- [x] Add README with architecture, WebMCP sources, Chrome and ChatGPT in-app browser testing steps, demo script, and Cloudflare deployment guidance.
-- [x] Add an open-source license and Cloudflare Pages configuration.
-- [x] Run type checking, unit tests, production build, interaction checks, and responsive visual QA.
-- [x] Record final design QA evidence and remaining external-only checks.
+Acceptance:
 
-## Milestone 6 — V1.5 generic agent search
+- `SPEC.md` says V3 development is approved.
+- Every V3 development task has a bounded scope, verification checkpoint, and commit message.
+- No application source is changed in this task.
 
-- [x] Replace all-token filtering with deterministic weighted ranking across the complete item metadata index.
-- [x] Add `features` and ranked evidence to `search_lost_items` without hardcoding showcase queries or item IDs.
-- [x] Let any user-entered natural-language description run the visible Agent Activity flow.
-- [x] Redefine demo mode as stable dataset state rather than Yellow Umbrella Mode.
-- [x] Verify the representative V1.5 prompts and generic retrieval of all 30 catalog items.
-- [x] Make production builds reliable without deleting the active OneDrive output directory.
+Verify:
 
-## Official WebMCP baseline checked on 2026-08-27
+```powershell
+git rev-parse --short HEAD
+git diff --check
+git diff --cached --name-only
+```
 
-- Chrome documentation last updated 2026-08-18 uses `document.modelContext.registerTool()` and marks `navigator.modelContext` deprecated in Chrome 150.
-- Imperative tool callbacks receive cancellation context as the second argument (`{ signal }`).
-- Read-only tools use `annotations.readOnlyHint: true`; stateful initiation uses `false`.
-- Local Chrome testing requires `chrome://flags/#enable-webmcp-testing`; Chrome 149+ can use the origin trial.
-- WebMCP remains experimental, so the implementation must feature-detect it and keep manual browsing functional.
+Commit:
 
-## Milestone 7 — V2 progressive investigation
+```text
+plan V3 persistent casefile development
+```
 
-- [x] Add normalized clue, facet discrimination, and evidence primitives.
-- [x] Add contradiction-aware matching and one active progressive session.
-- [x] Register exactly six approved WebMCP tools using the current official imperative API.
-- [x] Add the responsive Investigation Panel, real timeline, suggested clue, Evidence Card, candidate emphasis, and reset.
-- [x] Add the two-round Keys Investigation without hardcoding its candidate ID, score, or evidence.
-- [x] Verify 15+ curated Top-1 cases, all 30 names, sessions, facets, contradictions, all six local tools, human confirmation, responsive layout, build, and Sites packaging.
+---
+
+## Task 1 — Audit and lock the V2 baseline
+
+Spec refs: Sections 2, 19 Phase 0, 22.
+
+- [ ] Run the V2 typecheck, 82-test suite, production build, and Sites worker tests.
+- [ ] Map existing files responsible for search, matching, investigation state, WebMCP registration, claim review, and demo behavior.
+- [ ] Verify current official API details for `document.modelContext.registerTool`, annotations, registration lifecycle, and execution cancellation.
+- [ ] Record the audit and official-source date in `docs/V3_BASELINE_AUDIT.md`.
+- [ ] Record any baseline test-count change honestly instead of preserving a stale number.
+
+Acceptance:
+
+- V2 behavior passes before V3 source changes begin.
+- Audit identifies concrete reuse points and confirms no rewrite is needed.
+- Official references are limited to the current WebMCP specification and Chrome documentation.
+
+Verify: standard verification plus `git diff --check`.
+
+Commit:
+
+```text
+audit the V3 WebMCP baseline
+```
+
+---
+
+## Task 2 — Add the versioned casefile domain model
+
+Spec refs: Sections 6, 7, 14, 15.
+
+- [ ] Add `SupportedLocale`, `Casefile`, `CaseStep`, `ScoreSnapshot`, status, and validation result types.
+- [ ] Add deterministic case ID/time helpers that become stable only in Demo Mode.
+- [ ] Implement complete runtime validation for stored casefiles.
+- [ ] Reject invalid JSON, unknown versions, malformed clues, invalid steps, and invalid snapshots.
+- [ ] Rehydrate candidate references from the current catalog and remove missing item IDs safely.
+- [ ] Enforce query and clue length limits.
+- [ ] Add focused unit tests for valid, invalid, stale-catalog, and unsupported-locale payloads.
+
+Acceptance:
+
+- No unvalidated value is accepted as a `Casefile`.
+- Catalog objects are never copied into storage.
+- Unsupported locale falls back to English without losing canonical clues.
+
+Verify: targeted casefile tests, then standard verification.
+
+Commit:
+
+```text
+define and validate the V3 casefile
+```
+
+---
+
+## Task 3 — Persist, restore, and reset one active case
+
+Spec refs: Sections 4 Persistent Casefile, 7, 15.
+
+- [ ] Add storage adapter for `agent-lost-found.casefile.v1`.
+- [ ] Persist every accepted case mutation and claim-review status change.
+- [ ] Restore one valid active case at application startup.
+- [ ] Restore visible case state without appending fake Agent Activity or timeline entries.
+- [ ] Continue in memory and show a non-blocking notice when storage writes fail.
+- [ ] Discard only the application-owned key when the payload is invalid.
+- [ ] Add an explicit reset confirmation that clears case, evidence, claim state, and item highlighting.
+- [ ] Test refresh-equivalent restoration, corrupted storage, write failure, reset, and no-fabricated-activity behavior.
+
+Acceptance:
+
+- A real investigation survives reload with the same case ID, clues, candidates, evidence history, and status.
+- Reset removes only `agent-lost-found.casefile.v1`.
+
+Verify: persistence tests, standard verification, and manual refresh/reset check.
+
+Commit:
+
+```text
+persist the active lost item case
+```
+
+---
+
+## Task 4 — Build generic bilingual normalization and catalog metadata
+
+Spec refs: Sections 8, 18 Bilingual Search.
+
+- [ ] Add Traditional Chinese localized text for all 30 catalog items.
+- [ ] Add canonical bilingual aliases for categories, colors, features, locations, areas, and common phrases.
+- [ ] Apply Unicode NFKC normalization, Latin case folding, punctuation/filler removal, and existing English singular/plural handling.
+- [ ] Implement longest-phrase-first Traditional Chinese matching.
+- [ ] Merge mixed-language tokens without duplicate scoring.
+- [ ] Ensure one clue receives only its strongest applicable field weight.
+- [ ] Keep all logic generic; test that no localized branch keys directly on an item ID.
+- [ ] Add at least 15 Chinese Top-1, 10 mixed-language, and 30 localized-name discovery tests.
+
+Acceptance:
+
+- The representative Chinese queries in SPEC Section 18 return the expected Top-1 items.
+- Existing English search tests remain green.
+- English, Chinese, and mixed input use the same ranking engine.
+
+Verify: normalization/search tests, then standard verification.
+
+Commit:
+
+```text
+add native bilingual lost item search
+```
+
+---
+
+## Task 5 — Localize the primary human interface
+
+Spec refs: Sections 4 Native Languages, 12 Language and Case Header.
+
+- [ ] Add typed English and Traditional Chinese message catalogs.
+- [ ] Add a visible `English / 繁體中文` locale control in the header.
+- [ ] Localize navigation, hero/search, filters, catalog status, investigation, evidence, errors, demo controls, and claim review.
+- [ ] Set the document `lang` attribute from the active locale.
+- [ ] Preserve the active case and canonical clues when locale changes.
+- [ ] Show case ID, saved/restored status, updated time, and reset action in a responsive Case Header.
+- [ ] Keep the UI stable when Chrome automatic translation is enabled.
+
+Acceptance:
+
+- A user can switch locales without resetting or rescoring the case.
+- Primary workflow has no untranslated blocking control in either locale.
+- Mobile does not horizontally scroll.
+
+Verify: standard verification plus manual English, Traditional Chinese, locale-switch, automatic-translation, and mobile checks.
+
+Commit:
+
+```text
+localize the persistent case interface
+```
+
+---
+
+## Task 6 — Implement atomic clue mutations with undo
+
+Spec refs: Sections 9, 12 Clue Board, 15 No Candidates.
+
+- [ ] Implement generic `add`, `reject`, and `replace` clue mutations.
+- [ ] Normalize clues before duplicate and conflict checks.
+- [ ] Prevent positive and negative forms of the same canonical clue from remaining active together.
+- [ ] Make replacement atomic and ensure invalid mutations leave state unchanged.
+- [ ] Let human corrections override older inferred query clues.
+- [ ] Add undo-last-mutation using real prior clue state.
+- [ ] Re-run the same deterministic search/matching pipeline after each accepted mutation.
+- [ ] Append a real timeline step and score snapshot for every accepted mutation.
+- [ ] Preserve the case on zero candidates and offer clue correction/removal instead of claim review.
+- [ ] Add duplicate, conflict, replace, invalid, undo, and zero-result tests.
+
+Acceptance:
+
+- Human UI and engine state use one mutation path.
+- The Chinese wallet second-round clues raise LF-013 and weaken LF-014 using metadata, not special cases.
+
+Verify: clue-mutation and investigation tests, then standard verification.
+
+Commit:
+
+```text
+add atomic clue correction to casefiles
+```
+
+---
+
+## Task 7 — Explain deterministic ranking changes
+
+Spec refs: Sections 10, 12 Candidate Movement.
+
+- [ ] Preserve score and breakdown snapshots for every search step.
+- [ ] Implement `up`, `down`, `same`, `entered`, and `removed` rank movements.
+- [ ] Calculate exact score delta as current minus previous.
+- [ ] Keep item-ID ascending tie-breaking.
+- [ ] Derive changed evidence only from added, removed, or changed breakdown entries.
+- [ ] Add a Candidate Movement UI that includes text/icons and does not rely only on color.
+- [ ] Display exact score change and causal evidence without calling it probability or certainty.
+- [ ] Respect reduced-motion preferences.
+- [ ] Add complete rank-delta and evidence-diff tests.
+
+Acceptance:
+
+- Every visible movement is reproducible from two engine snapshots.
+- Translation changes labels only, never score values or causal meaning.
+
+Verify: rank-delta tests, standard verification, and manual wallet correction check.
+
+Commit:
+
+```text
+explain ranking changes from corrected clues
+```
+
+---
+
+## Task 8 — Build the interactive Clue Board
+
+Spec refs: Section 12 Clue Board and Mobile.
+
+- [ ] Show positive, negative, and unknown clues separately.
+- [ ] Add accessible controls for add, reject, replace, remove/correct, and undo.
+- [ ] Disable duplicate or invalid actions and show a concise localized reason.
+- [ ] Connect controls to the same atomic mutation functions used by agent calls.
+- [ ] Keep candidate cards readable on desktop and mobile without a permanently reserved side panel.
+- [ ] Preserve the viewport-safe claim portal and translated-layout fix.
+- [ ] Add component/integration tests for the principal correction flow.
+
+Acceptance:
+
+- A human can complete both rounds of the Chinese wallet demo without WebMCP.
+- Candidate emphasis, Evidence Card, timeline, and saved status update together.
+
+Verify: standard verification plus manual desktop/mobile clue-board and claim-modal checks.
+
+Commit:
+
+```text
+build the bilingual clue correction board
+```
+
+---
+
+## Task 9 — Upgrade WebMCP to persistent case continuity
+
+Spec refs: Sections 11, 14, 15.
+
+- [ ] Preserve and upgrade the six V2 tools.
+- [ ] Add only `get_active_case`, producing exactly seven registered tools.
+- [ ] Add optional `case_id` and internal `session_id` migration where required.
+- [ ] Reject missing/stale IDs without mutating another case.
+- [ ] Use `type: "object"` and `additionalProperties: false` for every schema.
+- [ ] Mark truly read-only tools with `readOnlyHint: true`; stateful tools use `false`.
+- [ ] Apply `untrustedContentHint` to responses containing user-authored or catalog/external text where supported.
+- [ ] Accept the execution callback `{ signal }` and check cancellation before committing state.
+- [ ] Keep outputs compact and synchronized with visible React state.
+- [ ] Ensure `request_claim` opens human review only and no confirmation tool exists.
+- [ ] Add schema, registration, stale-ID, restoration, annotation, cancellation, and claim-safety tests.
+
+Acceptance:
+
+- An agent can discover a restored case, add/correct clues, inspect rank changes, and request review through seven tools.
+- Cancellation cannot leave partial case or UI state.
+
+Verify: WebMCP unit tests, standard verification, and local tool discovery/execution where supported.
+
+Commit:
+
+```text
+expose persistent case context through WebMCP
+```
+
+---
+
+## Task 10 — Add presenter mode without scripted answers
+
+Spec refs: Sections 4 Presenter Mode, 13.
+
+- [ ] Add `?present=true` as a presentation-only display mode.
+- [ ] Provide copyable approved English and Traditional Chinese demo prompts.
+- [ ] Add compact one-click reset and more readable Agent Activity.
+- [ ] Reduce nonessential navigation and stabilize presentation timing/layout.
+- [ ] Support `?demo=true&present=true` together.
+- [ ] Confirm presenter mode never preselects an item, changes ranking, fabricates calls, or auto-confirms a claim.
+- [ ] Add regression tests comparing normal and presenter-mode engine outputs.
+
+Acceptance:
+
+- The presenter can record the real Chinese wallet flow and an unrelated English search.
+- The same query produces identical engine results with presenter mode on or off.
+
+Verify: presenter regression tests, standard verification, and manual recording-layout check.
+
+Commit:
+
+```text
+add honest V3 presenter mode
+```
+
+---
+
+## Task 11 — Add the V3 evaluation pack
+
+Spec refs: Sections 4 Evaluation Pack, 18.
+
+- [ ] Add English, Traditional Chinese, and mixed-language evaluation fixtures.
+- [ ] Cover persistence, clue correction, score deltas, stale case IDs, cancellation, and human-only claim safety.
+- [ ] Add `docs/WEBMCP_EVALS.md` with exact Chrome and ChatGPT in-app-browser procedures.
+- [ ] Add a manual scorecard that records date, environment, prompt, expected tool sequence, actual sequence, result, and notes.
+- [ ] Record only observed executions; leave unrun external checks clearly pending.
+- [ ] Ensure all 30 localized item names are included in the evaluation coverage.
+
+Acceptance:
+
+- Automated fixtures are deterministic and runnable locally.
+- Manual browser evidence distinguishes passed, failed, blocked, and not-run states.
+
+Verify: evaluation tests and standard verification.
+
+Commit:
+
+```text
+add V3 WebMCP evaluation coverage
+```
+
+---
+
+## Task 12 — Verify, document, deploy, and close V3
+
+Spec refs: Sections 19 Phase 6, 20, 21.
+
+- [ ] Run the complete typecheck, unit, production build, and Sites worker suites.
+- [ ] Verify the Chinese wallet flow, refresh/resume, clue correction, rank explanation, and human claim boundary.
+- [ ] Verify an unrelated English flow and a mixed-language flow.
+- [ ] Verify desktop, mobile, reduced motion, and Chrome automatic translation layouts.
+- [ ] Verify seven-tool discovery/execution in WebMCP-enabled Chrome and ChatGPT in-app browser where available.
+- [ ] Verify `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json` exist.
+- [ ] Update `README.md` with V2-versus-V3 changes, English judge instructions, demo script, architecture, safety boundary, and exact browser setup.
+- [ ] Mark every acceptance checkbox only from real evidence.
+- [ ] Push `main` and redeploy only after all P0 checks pass.
+- [ ] Smoke-test the deployed URL and confirm the worktree is clean.
+
+Acceptance:
+
+- Every P0 acceptance criterion in `SPEC.md` passes or an external-only check is reported honestly before release.
+- Deployed behavior matches the verified local build.
+- Git history contains one verified commit per completed development task.
+
+Verify:
+
+```powershell
+npm run typecheck
+npm test -- --run
+npm run build
+npm run test:sites
+git status --short
+```
+
+Commit:
+
+```text
+verify and document the V3 casefile release
+```
+
+---
+
+## Progress log
+
+| Task | Status | Commit | Verification |
+| --- | --- | --- | --- |
+| 0 | Complete | `plan V3 persistent casefile development` | Baseline `4265b4e`; diff check passed; planning files only |
+| 1 | Pending | — | — |
+| 2 | Pending | — | — |
+| 3 | Pending | — | — |
+| 4 | Pending | — | — |
+| 5 | Pending | — | — |
+| 6 | Pending | — | — |
+| 7 | Pending | — | — |
+| 8 | Pending | — | — |
+| 9 | Pending | — | — |
+| 10 | Pending | — | — |
+| 11 | Pending | — | — |
+| 12 | Pending | — | — |

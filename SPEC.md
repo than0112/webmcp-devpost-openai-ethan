@@ -1,1096 +1,831 @@
-# Agent Lost & Found — V2 SPEC
+# Agent Lost & Found — V3 SPEC
 
-**Version:** 2.0 Review Draft
-
-**Codename:** Investigation
-
-**Status:** Development blocked pending user approval
-
+**Version:** 3.0 Approved
+**Codename:** Persistent Casefile
+**Status:** Approved for incremental development on 2026-08-27
 **Target:** The WebMCP Challenge
-
-**Primary Goal:** Multi-step agent investigation over a deterministic 30-item catalog
-
 **Tagline:** Agents investigate. Humans decide.
 
 ---
 
 ## 1. Approval Gate
 
-This document is the proposed V2 implementation contract.
-
-- Do not begin V2 implementation until the project owner explicitly replies `OK`.
+- Do not begin V3 implementation until the project owner explicitly approves this SPEC.
 - Reviewing or editing this document does not authorize code changes, commits, pushes, or deployment.
-- After approval, implement incrementally. Do not rewrite the existing application from scratch.
-- Make one Git commit after each completed and verified development phase.
-- Keep the last approved V1.5 commit recoverable through Git history.
+- Extend the verified V2 application incrementally; do not rewrite it.
+- Complete and verify every development phase before creating its Git commit.
+- Stop and report before deviating from an approved P0 requirement or safety boundary.
 
 ---
 
-## 2. Current Baseline — V1.5 Already Complete
+## 2. V2 Baseline
 
-V2 starts from the working V1.5 application. The following are existing capabilities, not V2 work:
+V3 starts from commit `4265b4e` and preserves:
 
-- React, Vite, and TypeScript application.
-- Responsive human browsing interface for 30 catalog items.
-- `src/data/items.json` as the single catalog source of truth.
-- Generic natural-language search across all 30 items.
-- Deterministic weighted ranking with no item-ID-specific search branch.
-- Structured search clues: query, category, color, location, date, and features.
-- Four registered imperative WebMCP tools using the current official `document.modelContext.registerTool()` API:
-  - `search_lost_items`
-  - `get_item_details`
-  - `compare_items`
-  - `request_claim`
-- Visible Agent Activity, result highlighting, and human-only claim confirmation.
-- Demo behavior that uses the current user query and only falls back to a yellow umbrella example when the query is empty.
-- Automated generic search coverage for every catalog item.
-- Public GitHub source and Cloudflare Pages deployment.
+- React, Vite, TypeScript, Cloudflare Pages, and the Sites-compatible build.
+- The deterministic 30-item catalog in `src/data/items.json`.
+- Generic natural-language search without item-ID-specific result branches.
+- Progressive investigation, facets, evidence, contradictions, and timeline.
+- Six imperative WebMCP tools using the current official API.
+- Visible Agent Activity and candidate highlighting.
+- Human-only claim confirmation; no agent-callable confirmation tool.
+- Working Chrome and ChatGPT in-app-browser flows.
+- The V2 typecheck, 82 unit tests, production build, and Sites worker tests.
 
-V2 must preserve these capabilities and must not reimplement them as parallel systems.
+V3 must reuse these engines and UI paths instead of creating parallel systems.
 
 ---
 
 ## 3. Product Definition
 
-V1.5 can rank candidates from a description. V2 must help an agent investigate when the first description is incomplete.
+V2 supports one investigation until refresh. V3 turns it into a durable, bilingual casefile that can be resumed, corrected, and explained.
 
 ```text
-Human description
-        ↓
-WebMCP agent
-        ↓
-Search catalog
-        ↓
-Inspect uncertainty
-        ↓
-Ask the highest-value question
-        ↓
-Merge the new clue into the active investigation
-        ↓
-Search and compare again
-        ↓
-Explain matched, unknown, and contradictory evidence
-        ↓
-Recommend a possible match
-        ↓
-Request human claim confirmation
+English or Traditional Chinese description
+                    ↓
+           Create or resume case
+                    ↓
+       Search deterministic catalog
+                    ↓
+      Ask for a discriminating clue
+                    ↓
+ Human adds, corrects, or rejects a clue
+                    ↓
+   Re-rank and explain what changed
+                    ↓
+       Persist the complete casefile
+                    ↓
+       Agent requests claim review
+                    ↓
+          Human confirms or cancels
 ```
 
-V2 is successful when the page supports a real multi-step investigation instead of replaying a scripted answer.
+V3 succeeds when a user can begin in either supported language, refresh, resume the same case, correct evidence, and understand every ranking change.
 
 ---
 
-## 4. V2 Scope
+## 4. Scope
 
 ### P0 — Required
 
-#### Investigation
+#### Persistent Casefile
 
-- One active in-memory investigation session.
-- Progressive clue accumulation.
-- Deterministic candidate refinement.
-- Candidate count and best-match state.
-- Investigation timeline visible in the human UI.
-- Session reset on page refresh or explicit reset.
+- Persist one active case in `localStorage`.
+- Restore it after refresh without replaying fake tool calls.
+- Store case ID, locale, description, clues, candidates, score history, timeline, best match, and claim-review status.
+- Provide explicit reset with confirmation.
+- Version and validate the stored payload.
 
-#### Reasoning Support
+#### Native English and Traditional Chinese
 
-- Identify which remaining field best separates current candidates.
-- Do not suggest questions about clues the user already supplied.
-- Return deterministic question hints from templates.
-- Handle zero, one, or many candidates safely.
+- Add an explicit `English / 繁體中文` language control.
+- Localize primary navigation, search, investigation, evidence, claim, error, and demo surfaces.
+- Accept English, Traditional Chinese, and mixed-language descriptions.
+- Build one generic bilingual index from structured catalog metadata.
+- Do not depend on Chrome automatic translation for correctness.
 
-#### Matching and Evidence
+#### Interactive Clue Correction
 
-- Positive evidence.
-- Unknown or unverified evidence.
-- Explicit contradictions.
-- Negative-clue penalties.
-- Match score breakdown.
-- Human-readable match strength.
-- Evidence explanation for one recommended item.
+- Let a human add a positive clue.
+- Let a human reject a clue, such as `not black` or `不是雨傘`.
+- Let a human replace a conflicting structured clue.
+- Append a real timeline step and re-run the deterministic engines after every accepted mutation.
+- Human UI and WebMCP calls must update the same case.
 
-#### WebMCP
+#### Ranking Change Explanation
 
-- Upgrade the four existing tools without breaking their core behavior.
-- Add exactly two tools:
-  - `get_search_facets`
-  - `get_match_evidence`
-- Keep a maximum of six page-defined WebMCP tools.
+- Preserve previous candidate scores for every search step.
+- Show candidates moving up, down, entering, or leaving the candidate set.
+- Explain changes using actual positive and contradiction breakdown entries.
+- Never call the deterministic score an AI probability or certainty.
 
-#### Safety
+#### WebMCP Case Continuity
 
-- `request_claim` may only open the confirmation UI.
-- Do not register `confirm_claim` or any equivalent tool.
-- Only a human UI interaction may confirm a claim.
+- Preserve the six V2 tools and add at most one tool: `get_active_case`.
+- Upgrade relevant schemas to use `case_id`, with an internal migration adapter for V2 `session_id`.
+- Keep responses compact and synchronized with visible state.
+- Keep `request_claim` stateful and human-confirmed.
+
+#### Evaluation Pack
+
+- Add English, Traditional Chinese, and mixed-language fixtures.
+- Test schemas, case restoration, clue correction, score deltas, and claim safety.
+- Add a manual browser-agent scorecard for Chrome and ChatGPT in-app browser.
+- Record actual behavior; never fabricate successful calls.
+
+#### Presenter Mode
+
+- Add `?present=true` for recording-focused UI.
+- Provide one-click reset, copyable demo prompts, and readable Agent Activity.
+- It may stabilize layout and hide nonessential controls.
+- It must not force a query, candidate, score, item ID, or claim result.
 
 ### P1 — Optional After P0
 
-- `?debug=true` score breakdown on candidate cards.
-- Minor investigation animation and demo polish.
-- Additional synonym coverage beyond the acceptance-test vocabulary.
+- Export a case summary as local JSON or a printable report.
+- Additional locale aliases.
+- Minor motion and recording polish.
+- Capability-gated reference-photo attachment stored locally, without automatic recognition.
+
+### Explicitly Deferred
+
+- Vision-model inference.
+- Multiple simultaneous cases.
+- Authentication, accounts, or cross-device sync.
+- Backend database or real claim submission.
+- Maps, GPS, notifications, or background monitoring.
+- Embeddings, vector databases, RAG, or website-hosted LLM calls.
+- Chatbot UI.
 
 ---
 
-## 5. Non-Goals
-
-V2 must not add:
-
-- Image recognition or a Vision API.
-- LLM API calls from the website.
-- RAG, embeddings, or a vector database.
-- Authentication.
-- A database or backend service.
-- Real claim submission.
-- Maps.
-- A chatbot UI.
-- Admin tools.
-- Payments.
-- Local storage or cross-device session persistence.
-
-The browser agent is the intelligence layer. The website provides structured data, deterministic search, investigation support, evidence, and safe actions.
-
----
-
-## 6. Dataset Contract
-
-`src/data/items.json` remains the source of truth.
-
-Each item supplies:
-
-```ts
-interface LostItem {
-  id: string;
-  name: string;
-  category: string;
-  color: string[];
-  description: string;
-  distinctive_features: string[];
-  found_location: string;
-  found_area: string;
-  found_date: string;
-  status: "unclaimed" | "claim-pending";
-  image: string;
-  tags: string[];
-}
-```
-
-Rules:
-
-- Search, facets, matching, evidence, and UI results must derive from this data.
-- No item ID, score, candidate list, or answer may be hardcoded for a demo.
-- Do not claim that an item has a feature that is absent from both its metadata and visible asset.
-- V2 does not add a fictional bear keychain or library location to LF-007.
-- If catalog metadata changes later, update its asset, tests, and demo claims together.
-
----
-
-## 7. Main V2 Demo — Keys Investigation
-
-The official V2 demo uses existing catalog data without modifying images or inventing features.
+## 5. Main V3 Demo
 
 ### Round 1
 
 Human:
 
-> I lost something on a key ring.
+> 我昨天在體育館掉了棕色皮夾。
 
-Agent calls `search_lost_items`.
+Expected:
 
-Expected candidates include LF-015 through LF-018.
+- Create a persistent case.
+- Extract wallet, brown, gym, and relative-date clues deterministically.
+- Return honest candidates derived from catalog metadata.
+- Rank LF-013 strongest when its metadata supplies the best evidence.
 
 ### Round 2
 
-Agent calls `get_search_facets`.
-
-The tool identifies the attached object or charm shape as a high-value clue and returns a deterministic question hint such as:
-
-> Do you remember what was attached to the ring — a house, bear, heart, or car fob?
-
 Human:
 
-> It had a small bear charm.
+> 有按扣，而且不是卡套。
 
-Agent calls `search_lost_items` again with the active `session_id`. The clue is merged into the session.
+Expected:
 
-Expected strongest candidate: LF-017 Bear Keychain.
+- Add the positive snap-button clue.
+- Add the negative card-holder clue.
+- Re-run ranking through the same engine.
+- Explain why LF-013 rose and LF-014 fell.
+- Append a real timeline step.
 
-### Evidence and Claim
+### Round 3
 
-Agent calls `compare_items`, then `get_match_evidence`.
+- Refresh the page.
+- Restore case ID, clues, candidates, evidence, and timeline.
+- Do not fabricate Agent Activity during restoration.
 
-Expected evidence is derived from LF-017 metadata:
+### Ending
 
-- Key ring or keychain category evidence.
-- Bear or teddy-bear feature evidence.
-- Brown color evidence when supplied.
-- Children's Library location evidence when supplied.
-- No invented brand or backpack evidence.
+- Agent calls `request_claim`.
+- The page opens human confirmation.
+- Only a human click completes the demo confirmation.
 
-Agent calls `request_claim`.
-
-The website opens the human confirmation UI and stops.
-
-Ending:
-
-> Agents investigate. Humans decide.
-
-The previous yellow duck umbrella remains a valid one-step regression example, not the V2 investigation demo.
+The V2 Keys Investigation and unrelated English searches remain regression scenarios.
 
 ---
 
-## 8. Architecture
-
-```text
-Human UI ───────────────┐
-                       ↓
-WebMCP tools ──→ Investigation Session
-                       ↓
-                Generic Search Engine
-                       ↓
-                  items.json
-                       ↓
-                 Candidate Set
-                  ↙         ↘
-          Facet Engine     Matching Engine
-                  ↓             ↓
-          Next Question    Ranked Evidence
-                                ↓
-                         Evidence Engine
-                                ↓
-                       Human Claim Review
-```
-
-Separation rules:
-
-- WebMCP tool handlers orchestrate pure engines; they do not contain scoring logic.
-- Human search and WebMCP search reuse the same search engine.
-- `compare_items` reuses the same normalized evidence primitives as search.
-- `get_match_evidence` formats existing evidence; it does not perform a second unrelated ranking pass.
-- React owns the single active session and visible timeline.
-
----
-
-## 9. Planned File Structure
-
-```text
-src/
-├── components/
-│   ├── InvestigationPanel.tsx   # Session status, timeline, and reset action
-│   ├── InvestigationStep.tsx    # One visible investigation event
-│   ├── EvidenceCard.tsx         # Match strength and evidence sections
-│   └── CandidateBadge.tsx       # Candidate or dimmed state indicator
-├── hooks/
-│   ├── useInvestigation.ts      # Single active in-memory session reducer
-│   └── useWebMCP.ts             # Registers and orchestrates six WebMCP tools
-├── lib/
-│   ├── normalize.ts             # Tokenization, aliases, singular/plural normalization
-│   ├── search.ts                # Generic ranking and candidate retrieval
-│   ├── matching.ts              # Positive, unknown, and contradiction scoring
-│   ├── facets.ts                # Candidate discrimination and question hints
-│   └── evidence.ts              # Evidence explanation and score breakdown shaping
-├── data/
-│   └── items.json               # Unchanged catalog source of truth
-└── types/
-    ├── item.ts                  # Catalog, search, and match types
-    └── investigation.ts         # Session, clue, step, facet, and evidence types
-```
-
-Do not create `lib/webmcp.ts` unless shared tool-registration code actually needs it. Keep the existing registration hook as the primary integration point.
-
----
-
-## 10. Normalization Contract
-
-Move reusable normalization from `search.ts` into `normalize.ts`.
-
-Required behavior:
-
-- Lowercase and Unicode normalization.
-- Punctuation removal.
-- Stop-word removal for natural-language queries.
-- Token-boundary-aware matching.
-- Minimal singular/plural normalization.
-- Small, explicit synonym dictionary.
-- No external NLP dependency.
-
-Initial synonym groups:
+## 6. Case Data Contract
 
 ```ts
-const SYNONYMS = {
-  bag: ["backpack", "handbag", "shoulder bag", "messenger bag", "tote"],
-  earbuds: ["airpods", "earphones", "wireless earbuds"],
-  bottle: ["water bottle", "thermos"],
-  glasses: ["spectacles", "eyeglasses"],
-  hat: ["cap", "bucket hat"],
-  key: ["keys", "key ring", "keychain"],
-};
-```
+type SupportedLocale = "en" | "zh-TW";
 
-Avoid unrestricted substring matching that creates false relationships such as `water` matching only because an item was found at `Waterfront`.
-
----
-
-## 11. Search Ranking Contract
-
-Each query term receives its strongest matching field weight. The same term must not collect duplicate points from every field.
-
-| Evidence source | Weight |
-| --- | ---: |
-| Complete item name present in query | +40 |
-| Category | +30 |
-| Distinctive feature | +25 |
-| Tag | +20 |
-| Color | +15 |
-| Location | +15 |
-| Date | +15 |
-| Area | +10 |
-| Description keyword | +5 |
-
-Rules:
-
-- Ranking is deterministic.
-- Ties resolve by item ID ascending.
-- Structured filters and natural-language terms use the same normalized vocabulary.
-- Search returns the five strongest results by default.
-- The response includes total candidate count but does not send all 30 item records to the agent.
-- The full candidate set remains available inside the active investigation session for facet analysis.
-- Match score is a deterministic similarity score, not an AI probability.
-- Search output includes a compact `score_breakdown` in debug mode only.
-
----
-
-## 12. Investigation Session
-
-V2 supports one active session per page.
-
-```ts
-type InvestigationStatus =
-  | "searching"
-  | "needs_clue"
-  | "possible_match"
-  | "confirmation_required"
-  | "completed";
-
-interface SearchClue {
-  kind: "query" | "category" | "color" | "feature" | "location" | "date" | "negative";
-  value: string;
-  source: "human" | "agent" | "query";
+interface Casefile {
+  version: 1;
+  id: string;
+  locale: SupportedLocale;
+  originalDescription: string;
+  clues: SearchClue[];
+  candidateIds: string[];
+  bestMatch?: string;
+  steps: CaseStep[];
+  scoreSnapshots: ScoreSnapshot[];
+  status:
+    | "searching"
+    | "needs_clue"
+    | "possible_match"
+    | "confirmation_required"
+    | "completed";
+  claimCandidateId?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
-interface SearchStep {
+interface CaseStep {
   id: string;
-  label: string;
-  candidateCount: number;
+  type:
+    | "search"
+    | "facet"
+    | "clue_added"
+    | "clue_rejected"
+    | "clue_replaced"
+    | "compare"
+    | "evidence"
+    | "claim_requested"
+    | "claim_confirmed";
+  labelKey: string;
   candidateIds: string[];
   createdAt: number;
 }
 
-interface InvestigationSession {
-  id: string;
-  originalQuery: string;
-  clues: SearchClue[];
-  candidateIds: string[];
-  searches: SearchStep[];
-  bestMatch?: string;
-  status: InvestigationStatus;
+interface ScoreSnapshot {
+  stepId: string;
+  scores: Record<string, number>;
+  breakdowns: Record<string, ScoreBreakdownEntry[]>;
 }
 ```
-
-Session rules:
-
-- The first search creates a session and returns its ID.
-- A later search with that `session_id` merges normalized clues and appends a timeline step.
-- Explicit new tool input wins over older conflicting session values.
-- Duplicate normalized clues are ignored.
-- A missing or stale session ID returns a structured error and does not create hidden state.
-- Refresh resets the session.
-- Explicit reset clears investigation, activity, candidate emphasis, and claim state.
-
----
-
-## 13. Facet Engine
-
-`get_search_facets` answers: “What should the agent ask next?”
-
-Candidate fields considered:
-
-- Category.
-- Color.
-- Canonical distinctive feature.
-- Location.
-- Area.
-- Tag group.
-
-For candidate count `n > 1`:
-
-```ts
-discrimination = (uniqueValueCount - 1) / (candidateCount - 1);
-coverage = candidatesWithAValue / candidateCount;
-facetScore = discrimination * coverage;
-```
-
-Classification:
-
-- `facetScore >= 0.70` → high.
-- `facetScore >= 0.40` → medium.
-- Otherwise → low.
 
 Rules:
 
-- One value shared by all candidates has zero discrimination.
-- Exclude clues already present in the session.
-- Exclude fields with inadequate coverage.
-- Do not treat every free-text feature phrase as a unique high-value facet.
-- Canonicalize features before comparing them.
-- Return at most three useful clues.
-- Use deterministic question templates; the website does not generate prose with an LLM.
-- Zero candidates returns recovery guidance.
-- One candidate returns no follow-up facet and recommends evidence comparison.
+- Demo Mode may use deterministic IDs and timestamps.
+- Catalog metadata remains authoritative.
+- Stored item references must be rehydrated from the current catalog.
+- Runtime restoration must not manufacture agent activity.
 
 ---
 
-## 14. Evidence Semantics
+## 7. Persistence Contract
 
-Evidence types have precise meanings:
+Storage key:
 
-### Matched
+```text
+agent-lost-found.casefile.v1
+```
 
-The item metadata confirms a supplied positive clue.
+Behavior:
 
-Examples:
+1. Validate the complete payload before restoration.
+2. Reject unknown schema versions.
+3. Remove references to missing catalog items.
+4. Recalculate derived display data from current metadata.
+5. Preserve clues and history only when structurally valid.
+6. On failure, start clean and show a recoverable notice.
+7. Reset removes only the application-owned case key.
 
-- User says `bear`; item has `teddy bear charm`.
-- User says `library`; item was found at `Children's Library`.
-
-### Unknown
-
-The clue cannot be verified from available metadata, but the item does not explicitly conflict with it.
-
-Examples:
-
-- User supplies a material detail that is not represented in item metadata.
-
-Do not invent unknown fields such as `brand unknown` unless the catalog formally contains a brand field.
-
-### Contradiction
-
-The item metadata explicitly conflicts with a structured positive clue, or the item contains an explicitly supplied negative clue.
-
-Examples:
-
-- User says `black`; candidate has only `green` color values.
-- User says `definitely no laptop sleeve`; candidate metadata contains `laptop sleeve`.
-
-Absence of a free-text feature is unknown, not automatically a contradiction.
+Do not store uploaded images, credentials, browser-agent context, or unrelated user data in P0.
 
 ---
 
-## 15. Contradiction Penalties
+## 8. Bilingual Catalog and Normalization
 
-| Contradiction source | Penalty |
-| --- | ---: |
-| Category | -40 |
-| Distinctive feature or explicit negative clue | -30 |
-| Color | -20 |
-| Location | -15 |
-| Date | -15 |
+Extend each item with localized searchable metadata:
 
-Scoring rules:
+```ts
+interface LocalizedItemText {
+  name: string;
+  description: string;
+  category: string;
+  colors: string[];
+  distinctive_features: string[];
+  found_location: string;
+  found_area: string;
+  tags: string[];
+}
 
-1. Calculate positive evidence using the generic field weights.
-2. Calculate contradiction penalties once per normalized clue.
-3. Subtract penalties from earned evidence.
-4. Clamp earned evidence to zero or greater.
-5. Normalize against the applicable evidence budget.
-6. Clamp the final match score to `0.00…1.00`.
-7. Return the positive and negative breakdown used to calculate the score.
+interface LostItem {
+  // Existing V2 fields remain canonical.
+  localized?: {
+    "zh-TW": LocalizedItemText;
+  };
+}
+```
 
-The score must never be a hardcoded demo value.
+Normalization:
 
-Match strength labels:
+- Unicode NFKC normalization.
+- Latin case folding.
+- Punctuation and conversational filler removal.
+- Existing English singular/plural and synonym handling.
+- Explicit Traditional Chinese aliases for categories, colors, features, locations, and common phrases.
+- Longest-phrase-first Chinese matching.
+- Mixed-language token merging without duplicate scoring.
+- Map locale aliases to canonical evidence before scoring.
+- Give one clue only its strongest applicable positive weight.
 
-- `0.85–1.00` → Strong Match.
-- `0.65–0.84` → Possible Match.
-- `0.40–0.64` → Weak Match.
-- `< 0.40` → Unlikely.
-
-UI wording must say `Match Score`, not `AI certainty` or `probability`.
+No language, query, or item may trigger an item-ID-specific result branch.
 
 ---
 
-## 16. WebMCP Tool Contracts
+## 9. Clue Mutation Contract
+
+```ts
+type ClueMutation =
+  | { action: "add"; clue: SearchClue }
+  | { action: "reject"; clue: SearchClue }
+  | { action: "replace"; previous: SearchClue; next: SearchClue };
+```
+
+Rules:
+
+- Normalize before equality or conflict checks.
+- Ignore exact duplicates.
+- Positive and negative forms of the same clue cannot remain active together.
+- Replacement is atomic.
+- Every mutation produces a search step and score snapshot.
+- Invalid mutations return structured errors without partial updates.
+- Human corrections override older inferred query clues.
+
+---
+
+## 10. Ranking Delta Contract
+
+```ts
+interface RankDelta {
+  item_id: string;
+  previous_rank?: number;
+  current_rank?: number;
+  previous_score?: number;
+  current_score?: number;
+  score_delta: number;
+  movement: "up" | "down" | "same" | "entered" | "removed";
+  changed_evidence: ScoreBreakdownEntry[];
+}
+```
+
+Rules:
+
+- Compare normalized engine output, not UI order.
+- Tie-breaking remains item ID ascending.
+- `changed_evidence` contains only added, removed, or changed breakdown entries.
+- Translation may alter labels but not values or causal meaning.
+- Compact tool responses may omit zero-delta candidates.
+
+---
+
+## 11. WebMCP Tools
+
+Implementation must be checked against current official WebMCP and Chrome documentation at development time.
 
 All schemas use `type: "object"` and `additionalProperties: false`.
 
-### Tool 01 — `search_lost_items` (Upgrade)
+### 01 — `search_lost_items` — Upgrade
 
-Purpose: create or continue an investigation and return ranked catalog candidates.
+- Accept `case_id?`, query, category, colors, features, location, date, negative clues, locale, and limit.
+- Create a case when `case_id` is absent.
+- Continue only the named case when it is present.
+- Return case ID, ranked candidates, status, and compact rank changes.
+
+### 02 — `get_item_details` — Preserve
+
+- Return catalog metadata in the requested locale when available.
+- Scroll to and highlight the visible card.
+
+### 03 — `get_search_facets` — Upgrade
+
+- Read candidates from the named case.
+- Return localized deterministic question hints.
+- Exclude supplied positive and negative clues.
+
+### 04 — `compare_items` — Upgrade
+
+- Merge case clues with explicit inputs.
+- Return rank, score, strength, matched, unknown, contradictions, and rank delta.
+
+### 05 — `get_match_evidence` — Upgrade
+
+- Return the exact score breakdown and changed evidence since the previous snapshot.
+- Update the visible Evidence Card without changing the score.
+
+### 06 — `request_claim` — Preserve Safety
+
+- Open human review only.
+- Use `readOnlyHint: false`.
+- Never complete or submit a real claim.
+- Never register `confirm_claim`.
+
+### 07 — `get_active_case` — New, Read-only
 
 ```ts
-interface SearchLostItemsInput {
-  session_id?: string;
-  query: string;
-  category?: string;
-  colors?: string[];
-  features?: string[];
-  location?: string;
-  date?: string;
-  negative_clues?: string[];
-  limit?: number; // default 5, maximum 10
+interface GetActiveCaseInput {
+  case_id?: string;
+  locale?: SupportedLocale;
 }
-```
 
-```ts
-interface SearchLostItemsOutput {
-  session_id: string;
-  query: string;
+interface GetActiveCaseOutput {
+  case_id: string;
+  status: Casefile["status"];
+  locale: SupportedLocale;
+  original_description: string;
+  clues: SearchClue[];
   candidate_count: number;
-  status: InvestigationStatus;
-  results: Array<{
-    item_id: string;
-    name: string;
-    score: number;
-    match_strength: string;
-    matched_terms: string[];
-    matched_fields: string[];
-  }>;
+  best_match?: string;
+  latest_step?: CaseStep;
 }
 ```
 
-Compatibility decision:
+Rules:
 
-- V2 canonical input is `colors: string[]`.
-- During migration, the internal TypeScript adapter may accept the V1.5 `color` string, but only canonical V2 fields appear in the registered schema.
-
-Side effects:
-
-- Updates the active session.
-- Updates visible candidates and timeline.
-- Does not open a claim.
-
-### Tool 02 — `get_item_details` (Keep Behavior)
-
-```ts
-interface GetItemDetailsInput {
-  item_id: string;
-}
-```
-
-Returns complete item metadata and visibly scrolls to and highlights the corresponding card.
-
-### Tool 03 — `get_search_facets` (New)
-
-```ts
-interface GetSearchFacetsInput {
-  session_id: string;
-}
-```
-
-```ts
-interface GetSearchFacetsOutput {
-  session_id: string;
-  candidate_count: number;
-  status: "needs_clue" | "ready_to_compare" | "no_candidates";
-  useful_clues: Array<{
-    field: string;
-    question_hint: string;
-    information_gain: "high" | "medium" | "low";
-    score: number;
-    example_values: string[];
-  }>;
-}
-```
-
-The tool reads candidates from the named active session. It does not accept arbitrary hidden candidates.
-
-### Tool 04 — `compare_items` (Upgrade)
-
-```ts
-interface CompareItemsInput {
-  session_id?: string;
-  item_ids: string[];
-  known_clues?: {
-    query?: string;
-    category?: string;
-    colors?: string[];
-    features?: string[];
-    location?: string;
-    date?: string;
-  };
-  negative_clues?: string[];
-}
-```
-
-If `session_id` is supplied, session clues are merged with explicit inputs. Explicit inputs win.
-
-Response:
-
-```ts
-interface CompareItemsOutput {
-  best_match: MatchEvidenceSummary;
-  alternatives: MatchEvidenceSummary[];
-}
-
-interface MatchEvidenceSummary {
-  item_id: string;
-  name: string;
-  score: number;
-  match_strength: "strong" | "possible" | "weak" | "unlikely";
-  matched: string[];
-  unknown: string[];
-  contradictions: string[];
-}
-```
-
-### Tool 05 — `get_match_evidence` (New)
-
-Purpose: explain one candidate without performing a separate ranking.
-
-```ts
-interface GetMatchEvidenceInput {
-  item_id: string;
-  session_id?: string;
-  known_clues?: CompareItemsInput["known_clues"];
-  negative_clues?: string[];
-}
-```
-
-```ts
-interface GetMatchEvidenceOutput {
-  item_id: string;
-  summary: {
-    strength: "strong" | "possible" | "weak" | "unlikely";
-    score: number;
-  };
-  evidence: {
-    matched: string[];
-    unknown: string[];
-    contradictions: string[];
-  };
-  score_breakdown: Array<{
-    clue: string;
-    field: string;
-    points: number;
-    type: "positive" | "contradiction";
-  }>;
-}
-```
-
-Side effects:
-
-- Updates the visible Evidence Card.
-- Adds an investigation timeline step.
-- Does not open a claim.
-
-### Tool 06 — `request_claim` (Keep)
-
-```ts
-interface RequestClaimInput {
-  item_id: string;
-  session_id?: string;
-}
-```
-
-Returns:
-
-```ts
-{
-  status: "confirmation_required";
-  item_id: string;
-  message: string;
-}
-```
-
-The tool opens the human confirmation UI. It cannot confirm a claim.
+- Use `readOnlyHint: true`.
+- Return only the current visible or restored case.
+- Missing or stale IDs return structured errors.
+- Do not expose the raw storage payload or browser data.
 
 ---
 
-## 17. Investigation UI
+## 12. UI Requirements
 
-### Desktop
+### Language
 
-- Preserve the existing catalog and visual language.
-- Add a right-side Investigation Panel approximately `320–380px` wide when investigation state exists.
-- Do not turn the application into a dashboard.
-- The panel contains:
-  - Session status.
-  - Timeline.
-  - Suggested next clue.
-  - Evidence Card.
-  - Reset action.
+- Locale control is visible in the header.
+- Locale changes do not reset the active case.
+- Canonical clues remain valid across locale changes.
+- Set document language to the selected locale.
+
+### Case Header
+
+- Show case ID, saved status, updated time, and reset.
+- Distinguish restored state from new agent activity.
+
+### Clue Board
+
+- Separate positive, negative, and unknown clues.
+- Provide add, reject, replace, and undo-last-mutation controls.
+- Disable invalid or duplicate actions with a reason.
+
+### Candidate Movement
+
+- Show movement without relying only on color.
+- Display exact score change and causal evidence.
+- Respect reduced-motion preferences.
+
+### Claim Review
+
+- Preserve the viewport-safe portal.
+- Remain stable with Chrome automatic translation.
+- Keep human confirmation as the only completion path.
 
 ### Mobile
 
-- Render investigation content as an in-page section or bottom sheet below search controls.
-- Do not reserve a fixed 320px side panel.
-- Keep claim confirmation readable without horizontal scrolling.
-
-### Candidate Visualization
-
-- Current candidates remain at full opacity.
-- Non-candidates may use approximately `0.35` opacity only while a session is active.
-- The current best match receives border emphasis and a small scale increase.
-- Candidate emphasis must derive from session candidate IDs.
-- Clearing the session restores all cards.
-- Respect reduced-motion preferences.
-
-### Evidence Card
-
-The card displays:
-
-- Item ID and name.
-- Match strength.
-- Match Score.
-- Matched evidence.
-- Unknown evidence.
-- Contradictions.
-- Review Match action.
-
-The card must not display evidence absent from the engine response.
+- Render case and clue controls in-page or in sheets.
+- Do not reserve a fixed side panel that makes the catalog unreadable.
+- Avoid horizontal scrolling.
 
 ---
 
-## 18. Agent Investigation Timeline
+## 13. Presenter Mode
 
-Example:
+`?present=true` controls presentation only.
 
-```text
-01  Searching catalog
-    4 candidates
+Allowed:
 
-02  Looking for useful clues
-    Attached charm can separate the candidates
+- Larger Agent Activity text.
+- Copy buttons for approved prompts.
+- Compact reset.
+- Reduced nonessential navigation.
+- Stable animation timing.
 
-03  Searching again
-    Bear charm added · 1 strongest candidate
+Forbidden:
 
-04  Comparing evidence
-    LF-017 · Strong Match
+- Preselecting an item.
+- Hardcoding candidates or scores.
+- Auto-confirming a claim.
+- Showing tool calls that did not occur.
+- Returning different engine results.
 
-05  Waiting for you
-    Human claim confirmation
-```
-
-Timeline rules:
-
-- Every entry derives from an actual engine or tool result.
-- Do not add fake delays to claim that an agent called a tool it did not call.
-- Repeated calls append steps instead of replacing the entire history.
-- Reset clears the timeline.
+`?demo=true&present=true` may be combined for recording.
 
 ---
 
-## 19. Demo Mode
+## 14. Security and Trust
 
-`?demo=true` means Stable Environment, not Scripted Answer.
-
-Demo Mode controls only:
-
-- Fixed 30-item dataset.
-- Deterministic scoring.
-- Investigation reset at startup.
-- Claim reset at startup.
-- Investigation Panel visible.
-- No randomness.
-
-Demo Mode must not control:
-
-- Query text.
-- Candidate IDs.
-- Match score.
-- Facet result.
-- Evidence result.
-- Claim candidate.
-
-The human may enter any supported natural-language description during Demo Mode.
+- Tool descriptions contain no unrelated instructions.
+- Catalog and user content are data, never agent instructions.
+- Use `untrustedContentHint` when the current official API supports it and output contains user-authored or external text.
+- Render user text safely; do not inject raw HTML.
+- Limit query and clue lengths.
+- Validate stored state.
+- Store no secrets or credentials.
+- Distinguish stateful and read-only tools.
+- Cancellation must not commit partial state.
 
 ---
 
-## 20. Error and Edge Cases
+## 15. Error and Recovery
 
-### Empty Query
+### Storage Failure
 
-- Human UI keeps the agent-search action disabled.
-- WebMCP returns a structured validation error.
+- Continue in memory and show a non-blocking notice.
+
+### Invalid Stored Case
+
+- Discard only the owned case payload and start clean.
 
 ### No Candidates
 
-- Session status becomes `needs_clue` or a recovery state.
-- Facet response recommends broadening or removing a clue.
-- No item is highlighted or claimable from that search result.
+- Preserve the case and clues.
+- Recommend removing or correcting a restrictive clue.
+- Do not open claim review.
 
-### One Candidate
+### Unsupported Locale
 
-- `get_search_facets` returns `ready_to_compare` and no unnecessary question.
+- Fall back to English without losing canonical state.
 
-### Stale Session
+### Stale Case ID
 
-- Return `{ error: "Session not found or expired." }`.
-- Do not silently mutate a different session.
-
-### Unknown Item
-
-- Return `{ error: "Item not found." }`.
+- Return a structured error and do not mutate another case.
 
 ### WebMCP Unsupported
 
-- Preserve the full human search and browsing interface.
-- Investigation engines remain usable through the page UI.
-
-### Tool Registration Failure
-
-- Show manual browsing mode.
-- Log a concise development warning without breaking the page.
+- Preserve the complete human search, correction, comparison, and claim-review UI.
 
 ---
 
-## 21. Testing Requirements
+## 16. Planned File Structure
 
-### Search
+```text
+src/
+├── components/
+│   ├── CaseHeader.tsx
+│   ├── ClueBoard.tsx
+│   ├── CandidateMovement.tsx
+│   ├── LocaleControl.tsx
+│   ├── PresenterControls.tsx
+│   └── ClaimModal.tsx
+├── data/
+│   ├── items.json
+│   └── locale-aliases.ts
+├── i18n/
+│   ├── en.ts
+│   └── zh-TW.ts
+├── lib/
+│   ├── casefile.ts
+│   ├── persistence.ts
+│   ├── clue-mutations.ts
+│   ├── rank-delta.ts
+│   ├── normalize.ts
+│   ├── search.ts
+│   ├── matching.ts
+│   ├── facets.ts
+│   └── webmcp-tools.ts
+├── types/
+│   ├── casefile.ts
+│   ├── item.ts
+│   └── investigation.ts
+└── evals/
+    ├── prompts.en.json
+    ├── prompts.zh-TW.json
+    └── prompts.mixed.json
 
-- At least 15 curated natural-language queries.
-- Generic retrieval test covering all 30 item names.
-- Structured category, colors, location, date, and feature tests.
-- Synonym tests.
-- Partial-word false-positive regression tests.
-- Default Top-5 and explicit limit tests.
-- Determinism test.
-- Curated Top-1 accuracy of at least 90%.
+docs/
+└── WEBMCP_EVALS.md
+```
 
-Representative queries include:
-
-1. `yellow umbrella duck` → LF-003.
-2. `black backpack` → LF-007.
-3. `green backpack` → LF-008.
-4. `brown wallet` → LF-013.
-5. `house keys` → LF-015.
-6. `bear keychain` → LF-017.
-7. `red heart keychain` → LF-018.
-8. `airpods` → LF-019.
-9. `round glasses` → LF-021.
-10. `blue water bottle` → LF-023.
-11. `black cap` → LF-025.
-12. `gray scarf` → LF-027.
-13. `black gloves` → LF-028.
-14. `yellow notebook` → LF-029.
-15. `black pen` → LF-030.
-
-`black backpack with bear keychain` is a mixed-clue ambiguity test. It must return relevant candidates based on actual metadata; it must not be asserted as LF-007 with invented bear evidence.
-
-### Facets
-
-- At least 8 facet tests.
-- All-shared value produces zero discrimination.
-- All-unique values produce high discrimination with full coverage.
-- Missing-value coverage reduces facet score.
-- Known clues are excluded.
-- One candidate returns `ready_to_compare`.
-- Zero candidates returns recovery guidance.
-- Results are deterministic.
-
-### Matching and Evidence
-
-- At least 10 matching tests.
-- At least 5 contradiction tests.
-- Positive evidence increases score.
-- Explicit negative evidence decreases score.
-- Structured field conflict becomes a contradiction.
-- Unrepresented free-text evidence becomes unknown.
-- Penalties cannot reduce score below zero.
-- Evidence explanation uses the same breakdown as ranking.
-- Match strength thresholds are tested at boundaries.
-
-### Investigation
-
-- At least 8 reducer or hook tests.
-- First search creates a session.
-- Follow-up search merges clues.
-- Duplicate clues are ignored.
-- Explicit new clues override conflicts.
-- Timeline appends actual steps.
-- Stale IDs fail closed.
-- Reset clears all session state.
-- Claim state does not survive reset.
-
-### WebMCP and UI Regression
-
-- Six tools register with valid JSON Schemas.
-- `get_search_facets` reads the correct session.
-- `get_match_evidence` displays the Evidence Card.
-- Agent calls visibly update the page.
-- `request_claim` still stops at human confirmation.
-- No `confirm_claim` tool exists.
-- Original yellow umbrella flow remains a valid regression case.
-- Production build and Sites worker tests pass.
+Reuse existing files when their responsibility already matches; do not duplicate engines to match this proposed tree.
 
 ---
 
-## 22. Development Phases and Commit Boundaries
-
-Development starts only after this SPEC is approved.
-
-### Phase 0 — Baseline Audit
-
-- Verify clean Git state and V1.5 test baseline.
-- Map existing search, matching, WebMCP, claim, and demo code to this SPEC.
-- Do not remove working features.
-
-No commit unless documentation changes are required.
-
-### Phase 1 — Normalization, Facets, and Evidence Primitives
-
-- Extract reusable normalization.
-- Add canonical feature handling.
-- Implement facet discrimination.
-- Implement evidence classification and score breakdown primitives.
-- Add pure unit tests.
-
-Commit message:
+## 17. Data Flow
 
 ```text
-add investigation facet and evidence engines
+Human or WebMCP input
+        ↓
+Bilingual normalization
+        ↓
+Atomic clue mutation
+        ↓
+Generic search + matching
+        ↓
+New score snapshot
+        ↓
+Rank delta calculation
+        ↓
+Case reducer
+   ↙           ↘
+UI update    localStorage
+        ↓
+Visible Agent Activity / Timeline
 ```
 
-### Phase 2 — Contradiction Matching and Session State
-
-- Upgrade matching for positive, unknown, and contradiction evidence.
-- Add the single active Investigation Session reducer or hook.
-- Add progressive clue merging and timeline state.
-- Add matching and session tests.
-
-Commit message:
+Restoration:
 
 ```text
-add progressive investigation state and matching
-```
-
-### Phase 3 — WebMCP Investigation Tools
-
-- Upgrade V2 schemas for existing tools.
-- Register `get_search_facets`.
-- Register `get_match_evidence`.
-- Connect tool calls to the active session.
-- Verify direct WebMCP execution locally.
-
-Commit message:
-
-```text
-expose investigation through WebMCP tools
-```
-
-### Phase 4 — Investigation UI
-
-- Add Investigation Panel and timeline.
-- Add Evidence Card.
-- Add candidate and best-match visualization.
-- Add responsive mobile behavior.
-- Preserve the existing claim UI.
-
-Commit message:
-
-```text
-build investigation timeline and evidence UI
-```
-
-### Phase 5 — Demo, Regression, and Release
-
-- Verify Keys Investigation end to end.
-- Verify unrelated item searches.
-- Run typecheck, unit tests, production build, Sites tests, and browser checks.
-- Verify six tools on the deployed page.
-- Push and deploy only after all release checks pass.
-
-Commit message:
-
-```text
-verify and polish V2 investigation flow
+Page load
+   ↓
+Read versioned payload
+   ↓
+Validate complete case
+   ↓
+Rehydrate catalog references
+   ↓
+Render without fake tool activity
 ```
 
 ---
 
-## 23. V2 Acceptance Criteria
+## 18. Testing Requirements
 
-### Search
+### Persistence
 
-- [ ] All 30 items remain searchable.
-- [ ] No item-specific search or scoring branch exists.
-- [ ] Structured and natural-language clues work together.
-- [ ] Synonyms and singular/plural forms work for the curated vocabulary.
-- [ ] Default Top-5 ranking is deterministic.
-- [ ] Mixed clues return honest candidates without invented evidence.
+- Valid case survives reload.
+- Invalid JSON and unknown versions fail safely.
+- Missing catalog IDs are removed safely.
+- Reset removes the stored case.
+- Restoration does not append activity.
 
-### Investigation
+### Bilingual Search
 
-- [ ] First search creates a session.
-- [ ] Follow-up clues refine the same session.
-- [ ] Candidate count is maintained internally.
-- [ ] High-value clues are detected deterministically.
-- [ ] Already-known clues are not requested again.
-- [ ] Timeline reflects real calls and state transitions.
+- At least 15 Traditional Chinese Top-1 queries.
+- At least 10 mixed-language queries.
+- Existing English tests remain green.
+- All 30 localized names are discoverable.
+- No localized item-ID-specific search rules.
 
-### Matching and Evidence
+Representative cases:
 
-- [ ] Positive evidence increases score.
-- [ ] Unknown evidence is distinguished from contradiction.
-- [ ] Contradictions reduce score.
-- [ ] Score breakdown explains the final Match Score.
-- [ ] Match strength labels use defined thresholds.
-- [ ] Evidence Card never invents metadata.
+1. `黃色小鴨雨傘` → LF-003.
+2. `黑色背包` → LF-007.
+3. `棕色皮夾` → LF-013.
+4. `房屋鑰匙` → LF-015.
+5. `小熊鑰匙圈` → LF-017.
+6. `白色無線耳機` → LF-019.
+7. `圓框眼鏡` → LF-021.
+8. `藍色水壺` → LF-023.
+9. `灰色圍巾` → LF-027.
+10. `黑色原子筆` → LF-030.
+
+### Clue Mutations
+
+- Duplicates are ignored.
+- Positive/negative conflict resolves atomically.
+- Replacement removes the old clue.
+- Invalid mutation leaves state unchanged.
+- Undo restores the prior clue state.
+
+### Rank Delta
+
+- Cover up, down, same, entered, and removed.
+- Score delta equals current minus previous.
+- Changed evidence matches engine changes.
+- Ties remain deterministic.
 
 ### WebMCP
 
-- [ ] Exactly six tools register successfully.
-- [ ] Search creates or continues an investigation.
-- [ ] Facet tool recommends the next useful clue.
-- [ ] Compare tool ranks candidates with contradictions.
-- [ ] Evidence tool explains one candidate.
-- [ ] Claim tool opens human confirmation only.
+- Exactly seven tools register when supported.
+- Schemas reject extra properties.
+- `get_active_case` is read-only.
+- Stateful annotations are correct.
+- Cancellation cannot commit partial state.
+- No `confirm_claim` exists.
 
-### Safety
+### Browser and Release
 
-- [ ] No agent-callable claim confirmation exists.
-- [ ] Human confirmation remains required.
-- [ ] Reset clears claim and investigation state.
+- Chrome with WebMCP enabled.
+- Chrome with automatic translation enabled.
+- ChatGPT in-app browser.
+- Desktop and mobile responsive checks.
+- Typecheck, unit tests, production build, and Sites tests.
+- Deployed tool discovery and execution.
 
-### Testing and Release
+---
 
-- [ ] Search, facets, matching, contradiction, session, WebMCP, and regression tests pass.
-- [ ] Curated Top-1 accuracy is at least 90%.
-- [ ] Typecheck passes.
-- [ ] Production build succeeds.
-- [ ] Sites worker tests pass.
-- [ ] Local in-app WebMCP execution succeeds.
-- [ ] Deployed Cloudflare page exposes and executes all six tools.
+## 19. Development Phases
+
+Development begins only after explicit SPEC approval.
+
+### Phase 0 — Baseline Audit
+
+- Verify commit `4265b4e`, clean worktree, V2 tests, build, and deployment.
+- Map V2 files to this SPEC.
+- Confirm the latest official WebMCP API.
+
+No commit unless audit documentation changes.
+
+### Phase 1 — Casefile Persistence
+
+- Add schema, validation, storage, restoration, reset, and tests.
+
+Commit:
+
+```text
+persist the active lost item case
+```
+
+### Phase 2 — Native Bilingual Search
+
+- Add locale messages, control, Chinese metadata, aliases, normalization, and tests.
+
+Commit:
+
+```text
+add native bilingual lost item search
+```
+
+### Phase 3 — Clue Correction and Rank Changes
+
+- Add clue mutations, snapshots, rank deltas, Clue Board, Candidate Movement, and tests.
+
+Commit:
+
+```text
+explain ranking changes from corrected clues
+```
+
+### Phase 4 — WebMCP Case Continuity
+
+- Upgrade schemas, add `get_active_case`, trust annotations, cancellation, and restoration behavior.
+
+Commit:
+
+```text
+expose persistent case context through WebMCP
+```
+
+### Phase 5 — Evals and Presenter Mode
+
+- Add bilingual fixtures, manual scorecard, presenter UI, and regression verification.
+
+Commit:
+
+```text
+add V3 WebMCP evals and presenter mode
+```
+
+### Phase 6 — Release Verification
+
+- Run all checks.
+- Verify Chrome, translation, in-app browser, responsive layout, and seven deployed tools.
+- Update README with V2-versus-V3 work and exact testing instructions.
+- Push and deploy only after P0 passes.
+
+Commit:
+
+```text
+verify and document the V3 casefile release
+```
+
+---
+
+## 20. Acceptance Criteria
+
+### Casefile
+
+- [ ] One case persists across refresh.
+- [ ] Invalid storage fails safely.
+- [ ] Reset clears case, evidence, claim, highlights, and owned storage.
+- [ ] Restoration never fabricates activity.
+
+### Language
+
+- [ ] Primary UI is native English and Traditional Chinese.
+- [ ] English, Chinese, and mixed queries share one generic engine.
+- [ ] All 30 localized names are discoverable.
+- [ ] Correctness does not depend on Chrome translation.
+
+### Investigation
+
+- [ ] Humans can add, reject, replace, and undo clues.
+- [ ] Every mutation creates a real timeline step.
+- [ ] Rankings update deterministically.
+- [ ] Movements are explained by real evidence changes.
+
+### WebMCP
+
+- [ ] Exactly seven tools register against the current API.
+- [ ] The agent can read the restored case.
+- [ ] Stale case IDs fail closed.
+- [ ] Annotations are correct.
+- [ ] User and catalog content are treated as data.
+- [ ] No agent-callable confirmation exists.
+
+### Demo and Release
+
+- [ ] Chinese wallet demo works end to end.
+- [ ] Refresh-and-resume is visible.
+- [ ] Unrelated English search still works.
+- [ ] Presenter Mode does not alter results.
+- [ ] Chrome and in-app browser expose expected tools.
+- [ ] Typecheck, tests, build, and Sites tests pass.
+- [ ] README distinguishes V2 from V3 work.
 - [ ] Worktree is clean after the final commit.
 
 ---
 
-## 24. V2 Completion Boundary
+## 21. Completion Boundary
 
-V2 is complete only when:
+V3 is complete only when:
 
-1. Multiple unrelated items can be found with natural-language descriptions.
-2. An incomplete description can produce multiple candidates.
-3. `get_search_facets` recommends a genuinely discriminating question.
-4. A follow-up human clue refines the active session.
-5. Evidence distinguishes matched, unknown, and contradictory information.
-6. The Keys Investigation demo works end to end using real `items.json` metadata.
-7. The agent stops at human claim confirmation.
+1. A case can start in English or Traditional Chinese.
+2. It survives refresh and resumes honestly.
+3. A human can correct or reject a clue.
+4. Candidate movement is explained by deterministic evidence.
+5. The agent can read and continue the restored case through WebMCP.
+6. The agent stops at human claim confirmation.
+7. Presenter Mode records the real product without scripted answers.
+8. The deployed site passes browser and release verification.
 
-Only after V2 is complete may V3 consider multimodal investigation or image-derived clues.
+Photo-derived clues may be considered for V3.1 only if they can be implemented and demonstrated honestly.
 
 ---
 
-## 25. Official Technical References
+## 22. Official References
 
-Implementation must be checked against the latest official sources at development time:
+Check implementation against the latest official sources at development time:
 
+- [WebMCP specification](https://webmachinelearning.github.io/webmcp/)
+- [WebMCP repository](https://github.com/webmachinelearning/webmcp)
 - [Chrome WebMCP overview](https://developer.chrome.com/docs/ai/webmcp)
-- [Chrome WebMCP imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api)
-- [Chrome WebMCP best practices](https://developer.chrome.com/docs/ai/webmcp/best-practices)
-- [Chrome WebMCP tool security](https://developer.chrome.com/docs/ai/webmcp/secure-tools)
-- [WebMCP Community Group specification](https://webmachinelearning.github.io/webmcp/)
-- [WebMCP Community Group repository](https://github.com/webmachinelearning/webmcp)
+- [Chrome imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api)
+- [Chrome WebMCP security](https://developer.chrome.com/docs/ai/webmcp/secure-tools)
+- [Chrome WebMCP evals](https://developer.chrome.com/docs/ai/webmcp/evals)
+- [Chrome DevTools WebMCP](https://developer.chrome.com/docs/devtools/application/webmcp)
 
-Because WebMCP remains experimental, current implementation code and official documentation—not copied experimental API examples—are the source of truth for API details.
+WebMCP remains experimental. Current official documentation and verified browser behavior override copied API examples in this frozen product specification.
