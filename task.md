@@ -68,11 +68,11 @@ plan V3 persistent casefile development
 
 Spec refs: Sections 2, 19 Phase 0, 22.
 
-- [ ] Run the V2 typecheck, 82-test suite, production build, and Sites worker tests.
-- [ ] Map existing files responsible for search, matching, investigation state, WebMCP registration, claim review, and demo behavior.
-- [ ] Verify current official API details for `document.modelContext.registerTool`, annotations, registration lifecycle, and execution cancellation.
-- [ ] Record the audit and official-source date in `docs/V3_BASELINE_AUDIT.md`.
-- [ ] Record any baseline test-count change honestly instead of preserving a stale number.
+- [x] Run the V2 typecheck, 82-test suite, production build, and Sites worker tests.
+- [x] Map existing files responsible for search, matching, investigation state, WebMCP registration, claim review, and demo behavior.
+- [x] Verify current official API details for `document.modelContext.registerTool`, annotations, registration lifecycle, and execution cancellation.
+- [x] Record the audit and official-source date in `docs/V3_BASELINE_AUDIT.md`.
+- [x] Record any baseline test-count change honestly instead of preserving a stale number.
 
 Acceptance:
 
@@ -417,7 +417,7 @@ verify and document the V3 casefile release
 | Task | Status | Commit | Verification |
 | --- | --- | --- | --- |
 | 0 | Complete | `plan V3 persistent casefile development` | Baseline `4265b4e`; diff check passed; planning files only |
-| 1 | Pending | — | — |
+| 1 | Complete | `audit the V3 WebMCP baseline` | Typecheck; 82 unit tests; production build; 4 Sites tests |
 | 2 | Pending | — | — |
 | 3 | Pending | — | — |
 | 4 | Pending | — | — |
