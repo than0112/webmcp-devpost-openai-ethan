@@ -1,35 +1,15 @@
 import type { LostItem, SearchInput, SearchResult } from "../types/item";
+import { hasAllTokens, normalizeCategory, normalizeText, tokenize } from "./normalize";
+
+export { normalizeCategory, normalizeText as normalize, tokenize } from "./normalize";
 
 export const DATASET_TODAY = "2026-08-27";
 
-export const normalize = (value: string) =>
-  value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
-
-const STOP_WORDS = new Set([
-  "a", "an", "and", "at", "can", "find", "for", "from", "i", "in", "is", "it", "lost", "me", "my", "of", "on", "please", "the", "this", "to", "was", "with",
-]);
-
-const CATEGORY_ALIASES: Record<string, string> = {
-  airpods: "audio", backpack: "bag", earbuds: "audio", gloves: "accessory", handbag: "bag",
-  hat: "accessory", headphones: "audio", keychain: "keys", messenger: "bag", pen: "other",
-  scarf: "accessory", thermos: "bottle", tote: "bag",
-};
-
-export const tokenize = (value: string) => normalize(value).split(" ").filter((token) => token && !STOP_WORDS.has(token));
-
-const tokenMatches = (text: string, token: string) => {
-  const words = tokenize(text);
-  return words.some((word) => word === token || (word.length >= 4 && token.length >= 4 && (word.includes(token) || token.includes(word))));
-};
-
-export function normalizeCategory(value?: string) {
-  const category = normalize(value ?? "");
-  return CATEGORY_ALIASES[category] ?? category;
-}
+const tokenMatches = (text: string, token: string) => hasAllTokens(text, token);
 
 export function resolveDate(value?: string): string | undefined {
   if (!value) return undefined;
-  const normalized = normalize(value);
+  const normalized = normalizeText(value);
   if (normalized === "yesterday") return "2026-08-26";
   if (normalized === "today") return DATASET_TODAY;
   return value;
@@ -37,10 +17,10 @@ export function resolveDate(value?: string): string | undefined {
 
 function matchesStructuredFilters(item: LostItem, input: SearchInput) {
   const category = normalizeCategory(input.category);
-  const color = normalize(input.color ?? "");
-  const location = normalize(input.location ?? "");
+  const color = normalizeText(input.color ?? "");
+  const location = normalizeText(input.location ?? "");
   const date = resolveDate(input.date);
-  return (!category || normalize(item.category) === category)
+  return (!category || normalizeText(item.category) === category)
     && (!color || item.color.some((value) => tokenMatches(value, color)))
     && (!location || tokenMatches(`${item.found_location} ${item.found_area} ${item.tags.join(" ")}`, location))
     && (!date || item.found_date === date);
@@ -49,8 +29,9 @@ function matchesStructuredFilters(item: LostItem, input: SearchInput) {
 function scoreItem(item: LostItem, input: SearchInput): SearchResult {
   const naturalLanguage = [input.query, input.category, input.color, input.location, ...(input.features ?? [])].filter(Boolean).join(" ");
   const queryTokens = [...new Set(tokenize(naturalLanguage))];
-  const nameTokens = tokenize(item.name);
-  const exactNameMatch = nameTokens.length > 0 && nameTokens.every((token) => queryTokens.includes(token));
+  const rawQueryTokens = normalizeText(naturalLanguage).split(" ").filter(Boolean);
+  const rawNameTokens = normalizeText(item.name).split(" ").filter(Boolean);
+  const exactNameMatch = rawNameTokens.length > 0 && rawNameTokens.every((token) => rawQueryTokens.includes(token));
   const fields = [
     { name: "category", value: item.category, weight: 30 },
     { name: "distinctive feature", value: item.distinctive_features.join(" "), weight: 25 },
