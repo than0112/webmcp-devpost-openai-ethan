@@ -46,10 +46,10 @@
 
 ## Milestone 5 — Release and submission readiness
 
-- [ ] Add README with architecture, WebMCP sources, Chrome and ChatGPT in-app browser testing steps, demo script, and Cloudflare deployment guidance.
-- [ ] Add an open-source license and Cloudflare Pages configuration.
-- [ ] Run type checking, unit tests, production build, interaction checks, and responsive visual QA.
-- [ ] Record final design QA evidence and remaining external-only checks.
+- [x] Add README with architecture, WebMCP sources, Chrome and ChatGPT in-app browser testing steps, demo script, and Cloudflare deployment guidance.
+- [x] Add an open-source license and Cloudflare Pages configuration.
+- [x] Run type checking, unit tests, production build, interaction checks, and responsive visual QA.
+- [x] Record final design QA evidence and remaining external-only checks.
 
 ## Official WebMCP baseline checked on 2026-08-27
 
