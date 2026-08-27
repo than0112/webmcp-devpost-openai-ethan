@@ -122,14 +122,14 @@ define and validate the V3 casefile
 
 Spec refs: Sections 4 Persistent Casefile, 7, 15.
 
-- [ ] Add storage adapter for `agent-lost-found.casefile.v1`.
-- [ ] Persist every accepted case mutation and claim-review status change.
-- [ ] Restore one valid active case at application startup.
-- [ ] Restore visible case state without appending fake Agent Activity or timeline entries.
-- [ ] Continue in memory and show a non-blocking notice when storage writes fail.
-- [ ] Discard only the application-owned key when the payload is invalid.
-- [ ] Add an explicit reset confirmation that clears case, evidence, claim state, and item highlighting.
-- [ ] Test refresh-equivalent restoration, corrupted storage, write failure, reset, and no-fabricated-activity behavior.
+- [x] Add storage adapter for `agent-lost-found.casefile.v1`.
+- [x] Persist every accepted case mutation and claim-review status change.
+- [x] Restore one valid active case at application startup.
+- [x] Restore visible case state without appending fake Agent Activity or timeline entries.
+- [x] Continue in memory and show a non-blocking notice when storage writes fail.
+- [x] Discard only the application-owned key when the payload is invalid.
+- [x] Add an explicit reset confirmation that clears case, evidence, claim state, and item highlighting.
+- [x] Test refresh-equivalent restoration, corrupted storage, write failure, reset, and no-fabricated-activity behavior.
 
 Acceptance:
 
@@ -419,7 +419,7 @@ verify and document the V3 casefile release
 | 0 | Complete | `plan V3 persistent casefile development` | Baseline `4265b4e`; diff check passed; planning files only |
 | 1 | Complete | `audit the V3 WebMCP baseline` | Typecheck; 82 unit tests; production build; 4 Sites tests |
 | 2 | Complete | `define and validate the V3 casefile` | Typecheck; 90 unit tests; production build; 4 Sites tests |
-| 3 | Pending | — | — |
+| 3 | Complete | `persist the active lost item case` | Typecheck; 94 unit tests; production build; 4 Sites tests; browser refresh/reset check |
 | 4 | Pending | — | — |
 | 5 | Pending | — | — |
 | 6 | Pending | — | — |

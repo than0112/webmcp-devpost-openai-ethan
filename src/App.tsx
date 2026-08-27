@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CirclesFour, HandTap, Lightning } from "@phosphor-icons/react";
 import itemsData from "./data/items.json";
 import type { LostItem, SearchInput, SearchResult } from "./types/item";
@@ -12,31 +12,116 @@ import { EmptyState } from "./components/EmptyState";
 import { AgentActivity, type ActivityEntry } from "./components/AgentActivity";
 import { ClaimModal } from "./components/ClaimModal";
 import { InvestigationPanel, InvestigationStandby } from "./components/InvestigationPanel";
-import { compareItems, compareItemsWithClues, descriptionToClues } from "./lib/matching";
+import { compareItemWithClues, compareItems, compareItemsWithClues, descriptionToClues } from "./lib/matching";
 import { useWebMCP } from "./hooks/useWebMCP";
 import type { MatchResult, UserDescription } from "./types/item";
 import type { InvestigationSession } from "./types/investigation";
 import { createInvestigationSession, createSearchStep } from "./lib/investigation";
 import { getSearchFacets } from "./lib/facets";
 import { buildKeysInvestigation, KEYS_DEMO_FOLLOWUP, KEYS_DEMO_INITIAL_QUERY } from "./lib/demo";
+import type { Casefile, CaseStepType } from "./types/casefile";
+import { DEMO_TIMESTAMP } from "./lib/casefile";
+import { clearActiveCase, loadActiveCase, saveActiveCase } from "./lib/persistence";
 
 const items = itemsData as LostItem[];
 const recentIds = ["LF-003", "LF-007", "LF-015", "LF-019"];
 const DEFAULT_DEMO_QUERY = `${KEYS_DEMO_INITIAL_QUERY}. ${KEYS_DEMO_FOLLOWUP}`;
 const demoMode = new URLSearchParams(window.location.search).get("demo") === "true";
+const catalogIds = new Set(items.map((item) => item.id));
+
+function loadInitialCase() {
+  try { return loadActiveCase(window.localStorage, catalogIds); }
+  catch { return { status: "unavailable" } as const; }
+}
+
+const initialCaseLoad = loadInitialCase();
+const restoredCase = initialCaseLoad.status === "restored" ? initialCaseLoad.casefile : null;
+
+function stepType(label: string): CaseStepType {
+  if (label.startsWith("Useful clue") || label.startsWith("Looking for")) return "facet";
+  if (label.startsWith("Compared")) return "compare";
+  if (label.startsWith("Waiting")) return "claim_requested";
+  return "search";
+}
+
+function sessionFromCasefile(casefile: Casefile): InvestigationSession {
+  return {
+    id: casefile.id,
+    originalQuery: casefile.originalDescription,
+    clues: casefile.clues,
+    candidateIds: casefile.candidateIds,
+    searches: casefile.steps.map((step) => ({ id: step.id, label: step.labelKey, candidateCount: step.candidateIds.length, candidateIds: step.candidateIds, createdAt: step.createdAt })),
+    bestMatch: casefile.bestMatch,
+    status: casefile.status,
+  };
+}
+
+function casefileFromSession(session: InvestigationSession, evidence: MatchResult | undefined, claimCandidateId: string | undefined, previous: Casefile | null): Casefile {
+  const steps = session.searches.map((step, index) => ({ id: `${step.id}-${index}`, type: stepType(step.label), labelKey: step.label, candidateIds: step.candidateIds, createdAt: step.createdAt }));
+  const latestStep = steps.at(-1);
+  const previousSnapshots = previous?.id === session.id ? previous.scoreSnapshots.filter((snapshot) => steps.some((step) => step.id === snapshot.stepId)) : [];
+  const scoreSnapshots = [...previousSnapshots];
+  if (evidence && latestStep) {
+    const snapshot = { stepId: latestStep.id, scores: { [evidence.item.id]: evidence.score }, breakdowns: { [evidence.item.id]: evidence.score_breakdown } };
+    const index = scoreSnapshots.findIndex((entry) => entry.stepId === latestStep.id);
+    if (index >= 0) scoreSnapshots[index] = snapshot;
+    else scoreSnapshots.push(snapshot);
+  }
+  const createdAt = previous?.id === session.id ? previous.createdAt : steps[0]?.createdAt ?? (demoMode ? DEMO_TIMESTAMP : Date.now());
+  return {
+    version: 1,
+    id: session.id,
+    locale: previous?.locale ?? "en",
+    originalDescription: session.originalQuery,
+    clues: session.clues,
+    candidateIds: session.candidateIds,
+    bestMatch: session.bestMatch,
+    steps,
+    scoreSnapshots,
+    status: session.status,
+    claimCandidateId,
+    createdAt,
+    updatedAt: demoMode ? DEMO_TIMESTAMP : Date.now(),
+  };
+}
+
+function restoredEvidence(casefile: Casefile | null) {
+  if (!casefile?.bestMatch) return undefined;
+  const item = items.find((candidate) => candidate.id === casefile.bestMatch);
+  return item ? compareItemWithClues(item, casefile.clues) : undefined;
+}
 
 export function App() {
   const galleryRef = useRef<HTMLElement>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(restoredCase?.originalDescription ?? "");
   const [category, setCategory] = useState("all");
   const [selectedItem, setSelectedItem] = useState<LostItem | null>(null);
   const [highlightedItem, setHighlightedItem] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
-  const [claimCandidate, setClaimCandidate] = useState<LostItem | null>(null);
-  const [claimMatch, setClaimMatch] = useState<MatchResult | undefined>();
-  const [claimConfirmed, setClaimConfirmed] = useState(false);
-  const [investigation, setInvestigation] = useState<InvestigationSession | null>(null);
-  const [evidence, setEvidence] = useState<MatchResult | undefined>();
+  const initialEvidence = useMemo(() => restoredEvidence(restoredCase), []);
+  const restoredClaim = restoredCase?.claimCandidateId ? items.find((item) => item.id === restoredCase.claimCandidateId) ?? null : null;
+  const [claimCandidate, setClaimCandidate] = useState<LostItem | null>(restoredClaim);
+  const [claimMatch, setClaimMatch] = useState<MatchResult | undefined>(restoredClaim ? initialEvidence : undefined);
+  const [claimConfirmed, setClaimConfirmed] = useState(restoredCase?.status === "completed");
+  const [investigation, setInvestigation] = useState<InvestigationSession | null>(restoredCase ? sessionFromCasefile(restoredCase) : null);
+  const [evidence, setEvidence] = useState<MatchResult | undefined>(initialEvidence);
+  const casefileRef = useRef<Casefile | null>(restoredCase);
+  const [storageNotice, setStorageNotice] = useState(() => {
+    if (initialCaseLoad.status === "discarded") return "The saved case was invalid and has been safely reset.";
+    if (initialCaseLoad.status === "unavailable") return "Case storage is unavailable. Changes will continue in memory.";
+    if (initialCaseLoad.status === "restored" && initialCaseLoad.warnings.length) return "The saved case was restored after removing stale catalog references.";
+    return restoredCase ? "Saved case restored. No agent calls were replayed." : "";
+  });
+
+  useEffect(() => {
+    if (!investigation) return;
+    const casefile = casefileFromSession(investigation, evidence, claimCandidate?.id, casefileRef.current);
+    casefileRef.current = casefile;
+    let result;
+    try { result = saveActiveCase(window.localStorage, casefile); }
+    catch { result = { ok: false } as const; }
+    if (!result.ok) setStorageNotice("Case storage is unavailable. Changes will continue in memory.");
+  }, [investigation, evidence, claimCandidate]);
 
   const filtered = useMemo(() => investigation ? items : searchItems(items, { query, category: category === "all" ? undefined : category }), [query, category, investigation]);
   const facets = useMemo(() => investigation ? getSearchFacets(investigation.candidateIds.map((id) => items.find((item) => item.id === id)!).filter(Boolean), investigation.clues) : [], [investigation]);
@@ -141,7 +226,10 @@ export function App() {
   }, [browse, highlight]);
 
   const resetInvestigation = useCallback(() => {
+    if (investigation && !window.confirm("Reset this saved case and its investigation history?")) return;
     resetWebMCP();
+    try { clearActiveCase(window.localStorage); } catch { /* The in-memory reset still succeeds. */ }
+    casefileRef.current = null;
     setInvestigation(null);
     setEvidence(undefined);
     setActivity([]);
@@ -151,13 +239,15 @@ export function App() {
     setClaimConfirmed(false);
     setQuery("");
     setCategory("all");
-  }, [resetWebMCP]);
+    setStorageNotice("");
+  }, [investigation, resetWebMCP]);
 
   const previewDemo = useCallback(() => query.trim() ? runAgentSearch(query, true) : runKeysDemo(), [query, runAgentSearch, runKeysDemo]);
 
   return (
     <div className="app-shell">
       <Header onBrowse={browse} />
+      {storageNotice && <div className="storage-notice" role="status"><span>{storageNotice}</span><button onClick={() => setStorageNotice("")} aria-label="Dismiss storage notice">×</button></div>}
       <main>
         <Hero onBrowse={browse} onDemo={previewDemo} />
         <section className="recent-section" aria-labelledby="recent-title">
