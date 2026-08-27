@@ -46,6 +46,11 @@ export interface SearchResult {
 export interface MatchResult {
   item: LostItem;
   score: number;
+  match_strength: import("./investigation").MatchStrength;
+  matched: string[];
+  unknown: string[];
+  contradictions: string[];
+  score_breakdown: import("./investigation").EvidenceBreakdown[];
   matched_features: string[];
   missing_features: string[];
 }

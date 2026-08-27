@@ -15,6 +15,18 @@ describe("evidence", () => {
     expect(result.contradictions).toEqual(["black"]);
     expect(result.penalty).toBe(20);
   });
+  it("marks a structured category conflict as a contradiction", () => {
+    const result = evaluateItemEvidence(bear, [{ kind: "category", value: "wallet", source: "human" }]);
+    expect(result.score_breakdown).toContainEqual(expect.objectContaining({ points: -40, type: "contradiction" }));
+  });
+  it("marks a structured location conflict as a contradiction", () => {
+    const result = evaluateItemEvidence(bear, [{ kind: "location", value: "parking garage", source: "human" }]);
+    expect(result.score_breakdown).toContainEqual(expect.objectContaining({ points: -15, type: "contradiction" }));
+  });
+  it("marks a structured date conflict as a contradiction", () => {
+    const result = evaluateItemEvidence(bear, [{ kind: "date", value: "2026-08-26", source: "human" }]);
+    expect(result.score_breakdown).toContainEqual(expect.objectContaining({ points: -15, type: "contradiction" }));
+  });
   it("penalizes an explicitly excluded detail when present", () => {
     const result = evaluateItemEvidence(bear, [{ kind: "negative", value: "bear", source: "human" }]);
     expect(result.penalty).toBe(30);

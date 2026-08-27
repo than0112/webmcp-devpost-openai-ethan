@@ -38,3 +38,23 @@ export interface EvidenceEvaluation {
 
 export type MatchStrength = "strong" | "possible" | "weak" | "unlikely";
 
+export type InvestigationStatus = "searching" | "needs_clue" | "possible_match" | "confirmation_required" | "completed";
+
+export interface SearchStep {
+  id: string;
+  label: string;
+  candidateCount: number;
+  candidateIds: string[];
+  createdAt: number;
+}
+
+export interface InvestigationSession {
+  id: string;
+  originalQuery: string;
+  clues: SearchClue[];
+  candidateIds: string[];
+  searches: SearchStep[];
+  bestMatch?: string;
+  status: InvestigationStatus;
+}
+
