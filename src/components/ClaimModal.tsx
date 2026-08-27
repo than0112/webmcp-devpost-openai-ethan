@@ -1,13 +1,21 @@
 import { Check, CheckCircle, ShieldCheck, X } from "@phosphor-icons/react";
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { LostItem, MatchResult } from "../types/item";
 
 export function ClaimModal({ item, match, confirmed, onCancel, onConfirm }: { item: LostItem; match?: MatchResult; confirmed: boolean; onCancel: () => void; onConfirm: () => void }) {
-  if (confirmed) return (
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
+
+  const content = confirmed ? (
     <div className="modal-backdrop"><section className="claim-modal success" role="dialog" aria-modal="true"><CheckCircle weight="fill" /><span className="section-kicker">Human confirmed</span><h2>Claim request created</h2><p>Your confirmation has been recorded for this demo. No external request was sent.</p><button className="primary-button" onClick={onCancel}>Back to found items</button></section></div>
-  );
-  const clues = match?.matched_features ?? item.distinctive_features;
-  const score = Math.round((match?.score ?? .96) * 100);
-  return (
+  ) : (() => {
+    const clues = match?.matched_features ?? item.distinctive_features;
+    const score = Math.round((match?.score ?? .96) * 100);
+    return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
       <section className="claim-modal" role="dialog" aria-modal="true" aria-labelledby="claim-title">
         <button className="close-button" onClick={onCancel} aria-label="Close"><X /></button>
@@ -19,5 +27,8 @@ export function ClaimModal({ item, match, confirmed, onCancel, onConfirm }: { it
         <div className="claim-actions"><button onClick={onCancel}>Cancel</button><button className="primary-button" onClick={onConfirm}><Check weight="bold" /> Confirm claim</button></div>
       </section>
     </div>
-  );
+    );
+  })();
+
+  return createPortal(content, document.body);
 }
