@@ -22,6 +22,9 @@ import { buildKeysInvestigation, KEYS_DEMO_FOLLOWUP, KEYS_DEMO_INITIAL_QUERY } f
 import type { Casefile, CaseStepType } from "./types/casefile";
 import { DEMO_TIMESTAMP } from "./lib/casefile";
 import { clearActiveCase, loadActiveCase, saveActiveCase } from "./lib/persistence";
+import type { SupportedLocale } from "./types/casefile";
+import { I18nProvider, useI18n } from "./i18n";
+import { CaseHeader } from "./components/CaseHeader";
 
 const items = itemsData as LostItem[];
 const recentIds = ["LF-003", "LF-007", "LF-015", "LF-019"];
@@ -56,7 +59,7 @@ function sessionFromCasefile(casefile: Casefile): InvestigationSession {
   };
 }
 
-function casefileFromSession(session: InvestigationSession, evidence: MatchResult | undefined, claimCandidateId: string | undefined, previous: Casefile | null): Casefile {
+function casefileFromSession(session: InvestigationSession, evidence: MatchResult | undefined, claimCandidateId: string | undefined, previous: Casefile | null, locale: SupportedLocale): Casefile {
   const steps = session.searches.map((step, index) => ({ id: `${step.id}-${index}`, type: stepType(step.label), labelKey: step.label, candidateIds: step.candidateIds, createdAt: step.createdAt }));
   const latestStep = steps.at(-1);
   const previousSnapshots = previous?.id === session.id ? previous.scoreSnapshots.filter((snapshot) => steps.some((step) => step.id === snapshot.stepId)) : [];
@@ -71,7 +74,7 @@ function casefileFromSession(session: InvestigationSession, evidence: MatchResul
   return {
     version: 1,
     id: session.id,
-    locale: previous?.locale ?? "en",
+    locale,
     originalDescription: session.originalQuery,
     clues: session.clues,
     candidateIds: session.candidateIds,
@@ -92,6 +95,13 @@ function restoredEvidence(casefile: Casefile | null) {
 }
 
 export function App() {
+  const [locale, setLocale] = useState<SupportedLocale>(restoredCase?.locale ?? "en");
+  useEffect(() => { document.documentElement.lang = locale; }, [locale]);
+  return <I18nProvider locale={locale}><AppContent locale={locale} onLocale={setLocale} /></I18nProvider>;
+}
+
+function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (locale: SupportedLocale) => void }) {
+  const { t } = useI18n();
   const galleryRef = useRef<HTMLElement>(null);
   const [query, setQuery] = useState(restoredCase?.originalDescription ?? "");
   const [category, setCategory] = useState("all");
@@ -115,13 +125,13 @@ export function App() {
 
   useEffect(() => {
     if (!investigation) return;
-    const casefile = casefileFromSession(investigation, evidence, claimCandidate?.id, casefileRef.current);
+    const casefile = casefileFromSession(investigation, evidence, claimCandidate?.id, casefileRef.current, locale);
     casefileRef.current = casefile;
     let result;
     try { result = saveActiveCase(window.localStorage, casefile); }
     catch { result = { ok: false } as const; }
     if (!result.ok) setStorageNotice("Case storage is unavailable. Changes will continue in memory.");
-  }, [investigation, evidence, claimCandidate]);
+  }, [investigation, evidence, claimCandidate, locale]);
 
   const filtered = useMemo(() => investigation ? items : searchItems(items, { query, category: category === "all" ? undefined : category }), [query, category, investigation]);
   const facets = useMemo(() => investigation ? getSearchFacets(investigation.candidateIds.map((id) => items.find((item) => item.id === id)!).filter(Boolean), investigation.clues) : [], [investigation]);
@@ -226,7 +236,7 @@ export function App() {
   }, [browse, highlight]);
 
   const resetInvestigation = useCallback(() => {
-    if (investigation && !window.confirm("Reset this saved case and its investigation history?")) return;
+    if (investigation && !window.confirm(t("resetConfirm"))) return;
     resetWebMCP();
     try { clearActiveCase(window.localStorage); } catch { /* The in-memory reset still succeeds. */ }
     casefileRef.current = null;
@@ -240,34 +250,35 @@ export function App() {
     setQuery("");
     setCategory("all");
     setStorageNotice("");
-  }, [investigation, resetWebMCP]);
+  }, [investigation, resetWebMCP, t]);
 
   const previewDemo = useCallback(() => query.trim() ? runAgentSearch(query, true) : runKeysDemo(), [query, runAgentSearch, runKeysDemo]);
 
   return (
     <div className="app-shell">
-      <Header onBrowse={browse} />
+      <Header onBrowse={browse} locale={locale} onLocale={onLocale} />
       {storageNotice && <div className="storage-notice" role="status"><span>{storageNotice}</span><button onClick={() => setStorageNotice("")} aria-label="Dismiss storage notice">×</button></div>}
       <main>
         <Hero onBrowse={browse} onDemo={previewDemo} />
         <section className="recent-section" aria-labelledby="recent-title">
-          <div className="section-heading compact"><div><span className="section-kicker">Fresh reports</span><h2 id="recent-title">Recently found</h2></div><button onClick={browse}>View all 30 <ArrowRight /></button></div>
+          <div className="section-heading compact"><div><span className="section-kicker">{t("freshReports")}</span><h2 id="recent-title">{t("recentlyFound")}</h2></div><button onClick={browse}>{t("viewAll")} <ArrowRight /></button></div>
           <div className="recent-grid">{recent.map((item) => <ItemCard key={item.id} item={item} highlighted={false} onOpen={() => setSelectedItem(item)} />)}</div>
         </section>
         <section className="how-section" id="how-it-works">
-          <div className="section-heading light"><div><span className="section-kicker">Human + agent</span><h2>A shorter path back to what’s yours.</h2></div><p>The same catalog is designed for people to browse and for browser agents to query through structured WebMCP tools.</p></div>
+          <div className="section-heading light"><div><span className="section-kicker">{t("humanAgent")}</span><h2>{t("shorterPath")}</h2></div><p>{t("shorterCopy")}</p></div>
           <div className="steps">
-            <article><span>01</span><CirclesFour /><h3>Search</h3><p>Your agent searches structured item data, not screenshots.</p></article>
-            <article><span>02</span><Lightning /><h3>Compare</h3><p>Deterministic clues explain why one item stands out.</p></article>
-            <article><span>03</span><HandTap /><h3>You decide</h3><p>The agent can request a claim. Only you can confirm it.</p></article>
+            <article><span>01</span><CirclesFour /><h3>{t("search")}</h3><p>{t("searchCopy")}</p></article>
+            <article><span>02</span><Lightning /><h3>{t("compare")}</h3><p>{t("compareCopy")}</p></article>
+            <article><span>03</span><HandTap /><h3>{t("decide")}</h3><p>{t("decideCopy")}</p></article>
           </div>
         </section>
         <section className="gallery-section" ref={galleryRef} aria-labelledby="gallery-title">
-          <div className="section-heading"><div><span className="section-kicker">Community catalog</span><h2 id="gallery-title">Found items</h2></div><p><strong>{items.length} items</strong> are currently waiting to find their owners.</p></div>
+          <div className="section-heading"><div><span className="section-kicker">{t("community")}</span><h2 id="gallery-title">{t("foundItems")}</h2></div><p><strong>{items.length}</strong> {t("waiting")}</p></div>
           <SearchFilters query={query} category={category} onQuery={setQuery} onCategory={setCategory} onAgentSearch={() => runAgentSearch(query)} />
+          {investigation && <CaseHeader caseId={investigation.id} updatedAt={casefileRef.current?.updatedAt ?? investigation.searches.at(-1)?.createdAt ?? Date.now()} restored={restoredCase?.id === investigation.id} onReset={resetInvestigation} />}
           <div className={investigation || demoMode ? "investigation-layout active" : "investigation-layout"}>
             <div className="catalog-column">
-              <div className="results-meta"><span>{investigation ? investigation.candidateIds.length : filtered.length} {investigation?.candidateIds.length === 1 || (!investigation && filtered.length === 1) ? "match" : "matches"}</span><span>Updated Aug 27, 2026</span></div>
+              <div className="results-meta"><span>{investigation ? investigation.candidateIds.length : filtered.length} {investigation?.candidateIds.length === 1 || (!investigation && filtered.length === 1) ? t("matchOne") : t("matches")}</span><span>{t("updated")}</span></div>
               {filtered.length ? <div className="item-grid">{filtered.map((item) => {
                 const candidateState = investigation ? investigation.bestMatch === item.id ? "best" : investigation.candidateIds.includes(item.id) ? "candidate" : "dimmed" : undefined;
                 return <ItemCard key={item.id} item={item} highlighted={highlightedItem === item.id} candidateState={candidateState} onOpen={() => setSelectedItem(item)} />;
@@ -278,7 +289,7 @@ export function App() {
           </div>
         </section>
       </main>
-      <footer><div className="brand footer-brand">Agent Lost <i>&amp;</i> Found</div><p>Agents search. <strong>Humans decide.</strong></p><span>Built for the agentic web.</span></footer>
+      <footer><div className="brand footer-brand">Agent Lost <i>&amp;</i> Found</div><p>{t("tagline")}</p><span>{t("built")}</span></footer>
       <AgentActivity supported={webmcpSupported} entries={activity} onDemo={previewDemo} />
       {selectedItem && <ItemDetail item={selectedItem} onClose={() => setSelectedItem(null)} onClaim={() => startClaim(selectedItem)} />}
       {claimCandidate && <ClaimModal item={claimCandidate} match={claimMatch} confirmed={claimConfirmed} onCancel={() => { setClaimCandidate(null); setClaimConfirmed(false); }} onConfirm={() => { setClaimConfirmed(true); setInvestigation((current) => current ? { ...current, status: "completed" } : current); setActivity((current) => current.map((entry) => entry.tool === "request_claim" ? { ...entry, message: "Confirmed by human", state: "done" } : entry)); }} />}

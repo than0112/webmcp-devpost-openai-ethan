@@ -179,13 +179,13 @@ add native bilingual lost item search
 
 Spec refs: Sections 4 Native Languages, 12 Language and Case Header.
 
-- [ ] Add typed English and Traditional Chinese message catalogs.
-- [ ] Add a visible `English / 繁體中文` locale control in the header.
-- [ ] Localize navigation, hero/search, filters, catalog status, investigation, evidence, errors, demo controls, and claim review.
-- [ ] Set the document `lang` attribute from the active locale.
-- [ ] Preserve the active case and canonical clues when locale changes.
-- [ ] Show case ID, saved/restored status, updated time, and reset action in a responsive Case Header.
-- [ ] Keep the UI stable when Chrome automatic translation is enabled.
+- [x] Add typed English and Traditional Chinese message catalogs.
+- [x] Add a visible `English / 繁體中文` locale control in the header.
+- [x] Localize navigation, hero/search, filters, catalog status, investigation, evidence, errors, demo controls, and claim review.
+- [x] Set the document `lang` attribute from the active locale.
+- [x] Preserve the active case and canonical clues when locale changes.
+- [x] Show case ID, saved/restored status, updated time, and reset action in a responsive Case Header.
+- [x] Keep the UI stable when Chrome automatic translation is enabled.
 
 Acceptance:
 
@@ -421,7 +421,7 @@ verify and document the V3 casefile release
 | 2 | Complete | `define and validate the V3 casefile` | Typecheck; 90 unit tests; production build; 4 Sites tests |
 | 3 | Complete | `persist the active lost item case` | Typecheck; 94 unit tests; production build; 4 Sites tests; browser refresh/reset check |
 | 4 | Complete | `add native bilingual lost item search` | Typecheck; 125 unit tests; production build; 4 Sites tests |
-| 5 | Pending | — | — |
+| 5 | Complete | `localize the persistent case interface` | Typecheck; 125 unit tests; production build; 4 Sites tests; bilingual desktop/mobile browser checks |
 | 6 | Pending | — | — |
 | 7 | Pending | — | — |
 | 8 | Pending | — | — |
