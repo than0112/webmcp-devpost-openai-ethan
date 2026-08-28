@@ -64,3 +64,44 @@ The LF-003 cell in the source board was compared with the implementation hero. T
 - P3: a production brand font could replace the system fallback if a licensed identity is introduced later; this is outside the frozen MVP.
 
 final result: passed
+
+---
+
+# Design QA — Presenter prompt controls
+
+## Scope
+
+- Source screenshots:
+  - `C:\Users\youho\OneDrive\圖片\Screenshots\螢幕擷取畫面 2026-08-28 151648.png` (2848 × 100 px)
+  - `C:\Users\youho\OneDrive\圖片\Screenshots\螢幕擷取畫面 2026-08-28 151656.png` (2874 × 1446 px)
+- Implementation screenshot: `reports/presenter-prompt-fix-after.png` (1425 × 723 px)
+- Combined comparison: `reports/presenter-prompt-fix-comparison.png` (2048 × 2069 px)
+- Tested state: Chrome automatic translation active, V3 presenter mode enabled, then both translated English and Chinese prompt buttons clicked.
+
+## Initial finding
+
+- Severity: P0
+- Symptom: Clicking either prompt-copy button caused the React application root to disappear, leaving a large blank cream page.
+- Browser evidence: Chrome reported `NotFoundError: Failed to execute 'insertBefore' on 'Node'` after automatic translation modified the button DOM.
+- Root cause: The click handler changed the icon from Copy to Check and back. React then attempted to reconcile nodes that Chrome translation had already rewritten.
+
+## Fix
+
+- Removed click-driven render-state and icon swapping from the prompt buttons.
+- Kept the existing layout, typography, colors, copy, icon library, and clipboard behavior unchanged.
+- Isolated clipboard handling in a failure-safe helper and added regression tests for both languages and clipboard rejection.
+
+## Post-fix verification
+
+- English prompt click: React root and `main` remained mounted.
+- Chinese prompt click: React root and `main` remained mounted.
+- Console errors and warnings after both clicks: none.
+- Focused visual comparison: presenter bar remained intact and the complete hero/application layout remained visible after both interactions.
+- Typography: unchanged.
+- Spacing and layout: restored; no blank-page collapse.
+- Colors and borders: unchanged.
+- Image quality and visible copy: unchanged.
+
+## Result
+
+passed
