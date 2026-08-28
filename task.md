@@ -150,14 +150,14 @@ persist the active lost item case
 
 Spec refs: Sections 8, 18 Bilingual Search.
 
-- [ ] Add Traditional Chinese localized text for all 30 catalog items.
-- [ ] Add canonical bilingual aliases for categories, colors, features, locations, areas, and common phrases.
-- [ ] Apply Unicode NFKC normalization, Latin case folding, punctuation/filler removal, and existing English singular/plural handling.
-- [ ] Implement longest-phrase-first Traditional Chinese matching.
-- [ ] Merge mixed-language tokens without duplicate scoring.
-- [ ] Ensure one clue receives only its strongest applicable field weight.
-- [ ] Keep all logic generic; test that no localized branch keys directly on an item ID.
-- [ ] Add at least 15 Chinese Top-1, 10 mixed-language, and 30 localized-name discovery tests.
+- [x] Add Traditional Chinese localized text for all 30 catalog items.
+- [x] Add canonical bilingual aliases for categories, colors, features, locations, areas, and common phrases.
+- [x] Apply Unicode NFKC normalization, Latin case folding, punctuation/filler removal, and existing English singular/plural handling.
+- [x] Implement longest-phrase-first Traditional Chinese matching.
+- [x] Merge mixed-language tokens without duplicate scoring.
+- [x] Ensure one clue receives only its strongest applicable field weight.
+- [x] Keep all logic generic; test that no localized branch keys directly on an item ID.
+- [x] Add at least 15 Chinese Top-1, 10 mixed-language, and 30 localized-name discovery tests.
 
 Acceptance:
 
@@ -420,7 +420,7 @@ verify and document the V3 casefile release
 | 1 | Complete | `audit the V3 WebMCP baseline` | Typecheck; 82 unit tests; production build; 4 Sites tests |
 | 2 | Complete | `define and validate the V3 casefile` | Typecheck; 90 unit tests; production build; 4 Sites tests |
 | 3 | Complete | `persist the active lost item case` | Typecheck; 94 unit tests; production build; 4 Sites tests; browser refresh/reset check |
-| 4 | Pending | — | — |
+| 4 | Complete | `add native bilingual lost item search` | Typecheck; 125 unit tests; production build; 4 Sites tests |
 | 5 | Pending | — | — |
 | 6 | Pending | — | — |
 | 7 | Pending | — | — |

@@ -11,5 +11,8 @@ describe("normalization", () => {
   });
   it("matches complete normalized tokens", () => expect(hasAllTokens("teddy bear charm", "bear charm")).toBe(true));
   it("does not use unrestricted substrings", () => expect(hasAllTokens("Waterfront", "water")).toBe(false));
+  it("normalizes full-width Unicode with NFKC", () => expect(normalizeText("ＢＬＡＣＫ　ＰＥＮ")).toBe("black pen"));
+  it("uses longest Traditional Chinese phrases before general aliases", () => expect(tokenize("黃色小鴨雨傘")).toEqual(["yellow", "duck", "umbrella"]));
+  it("removes Traditional Chinese conversational filler", () => expect(tokenize("我昨天在體育館掉了棕色皮夾")).toEqual(["yesterday", "gym", "brown", "wallet"]));
+  it("merges mixed-language aliases without duplicate tokens", () => expect([...new Set(tokenize("black 黑色 backpack 後背包"))]).toEqual(["black", "bag"]));
 });
-

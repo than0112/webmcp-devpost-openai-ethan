@@ -42,6 +42,52 @@ describe("searchItems", () => {
     }
   });
 
+  it.each([
+    ["黃色小鴨雨傘", "LF-003"],
+    ["黑色後背包", "LF-007"],
+    ["綠色後背包", "LF-008"],
+    ["棕色皮夾", "LF-013"],
+    ["房屋鑰匙", "LF-015"],
+    ["小熊鑰匙圈", "LF-017"],
+    ["白色無線耳機", "LF-019"],
+    ["耳罩式耳機", "LF-020"],
+    ["圓框眼鏡", "LF-021"],
+    ["黑框眼鏡", "LF-022"],
+    ["藍色水壺", "LF-023"],
+    ["黑色棒球帽", "LF-025"],
+    ["灰色圍巾", "LF-027"],
+    ["黑色手套", "LF-028"],
+    ["黑色原子筆", "LF-030"],
+  ])("ranks the Traditional Chinese query '%s' as %s", (query, expectedId) => {
+    expect(rankItems(items, { query })[0]?.item.id).toBe(expectedId);
+  });
+
+  it.each([
+    ["yellow 小鴨 umbrella", "LF-003"],
+    ["black 後背包", "LF-007"],
+    ["green 後背包 with 扣帶", "LF-008"],
+    ["brown 皮夾 at 體育館", "LF-013"],
+    ["house 鑰匙", "LF-015"],
+    ["bear 鑰匙圈", "LF-017"],
+    ["white 無線耳機", "LF-019"],
+    ["round 眼鏡", "LF-021"],
+    ["blue 水壺 at gym", "LF-023"],
+    ["black 原子筆", "LF-030"],
+  ])("ranks the mixed-language query '%s' as %s", (query, expectedId) => {
+    expect(rankItems(items, { query })[0]?.item.id).toBe(expectedId);
+  });
+
+  it("discovers all 30 localized names through the same generic index", () => {
+    for (const item of items) {
+      expect(item.localized?.["zh-TW"].name).toBeTruthy();
+      expect(rankItems(items, { query: item.localized!["zh-TW"].name })[0]?.item.id).toBe(item.id);
+    }
+  });
+
+  it("parses a natural Traditional Chinese wallet description without item-specific logic", () => {
+    expect(rankItems(items, { query: "我昨天在體育館掉了棕色皮夾" })[0]?.item.id).toBe("LF-013");
+  });
+
   it("returns multiple ranked candidates when clues point to different items", () => {
     const ids = rankItems(items, { query: "black backpack with a bear keychain" }).slice(0, 2).map((result) => result.item.id);
     expect(ids).toEqual(["LF-017", "LF-007"]);
@@ -49,6 +95,7 @@ describe("searchItems", () => {
 
   it("resolves demo-relative dates deterministically", () => {
     expect(resolveDate("yesterday")).toBe("2026-08-26");
+    expect(resolveDate("昨天")).toBe("2026-08-26");
   });
 
   it("supports structured location and feature clues", () => {

@@ -7,9 +7,14 @@ export const DATASET_TODAY = "2026-08-27";
 
 const tokenMatches = (text: string, token: string) => hasAllTokens(text, token);
 
+function localizedText(item: LostItem) {
+  const localized = item.localized?.["zh-TW"];
+  return localized ? [localized.name, localized.category, ...localized.color, localized.description, ...localized.distinctive_features, localized.found_location, localized.found_area, ...localized.tags].join(" ") : "";
+}
+
 export function resolveDate(value?: string): string | undefined {
   if (!value) return undefined;
-  const normalized = normalizeText(value);
+  const normalized = tokenize(value).join(" ");
   if (normalized === "yesterday") return "2026-08-26";
   if (normalized === "today") return DATASET_TODAY;
   return value;
@@ -21,25 +26,26 @@ function matchesStructuredFilters(item: LostItem, input: SearchInput) {
   const location = normalizeText(input.location ?? "");
   const date = resolveDate(input.date);
   return (!category || normalizeText(item.category) === category)
-    && (!color || item.color.some((value) => tokenMatches(value, color)))
-    && (!location || tokenMatches(`${item.found_location} ${item.found_area} ${item.tags.join(" ")}`, location))
+    && (!color || [...item.color, ...(item.localized?.["zh-TW"].color ?? [])].some((value) => tokenMatches(value, color)))
+    && (!location || tokenMatches(`${item.found_location} ${item.found_area} ${item.tags.join(" ")} ${localizedText(item)}`, location))
     && (!date || item.found_date === date);
 }
 
 function scoreItem(item: LostItem, input: SearchInput): SearchResult {
   const naturalLanguage = [input.query, input.category, input.color, input.location, ...(input.features ?? [])].filter(Boolean).join(" ");
   const queryTokens = [...new Set(tokenize(naturalLanguage))];
-  const rawQueryTokens = normalizeText(naturalLanguage).split(" ").filter(Boolean);
-  const rawNameTokens = normalizeText(item.name).split(" ").filter(Boolean);
-  const exactNameMatch = rawNameTokens.length > 0 && rawNameTokens.every((token) => rawQueryTokens.includes(token));
+  const normalizedQuery = ` ${normalizeText(naturalLanguage)} `;
+  const exactNameMatch = [item.name, item.localized?.["zh-TW"].name]
+    .filter((name): name is string => Boolean(name))
+    .some((name) => normalizedQuery.includes(` ${normalizeText(name)} `));
   const fields = [
-    { name: "category", value: item.category, weight: 30 },
-    { name: "distinctive feature", value: item.distinctive_features.join(" "), weight: 25 },
-    { name: "tag", value: item.tags.join(" "), weight: 20 },
-    { name: "color", value: item.color.join(" "), weight: 15 },
-    { name: "location", value: item.found_location, weight: 15 },
-    { name: "area", value: item.found_area, weight: 10 },
-    { name: "description", value: `${item.name} ${item.description}`, weight: 5 },
+    { name: "category", value: `${item.category} ${item.localized?.["zh-TW"].category ?? ""}`, weight: 30 },
+    { name: "distinctive feature", value: `${item.distinctive_features.join(" ")} ${item.localized?.["zh-TW"].distinctive_features.join(" ") ?? ""}`, weight: 25 },
+    { name: "tag", value: `${item.tags.join(" ")} ${item.localized?.["zh-TW"].tags.join(" ") ?? ""}`, weight: 20 },
+    { name: "color", value: `${item.color.join(" ")} ${item.localized?.["zh-TW"].color.join(" ") ?? ""}`, weight: 15 },
+    { name: "location", value: `${item.found_location} ${item.localized?.["zh-TW"].found_location ?? ""}`, weight: 15 },
+    { name: "area", value: `${item.found_area} ${item.localized?.["zh-TW"].found_area ?? ""}`, weight: 10 },
+    { name: "description", value: `${item.name} ${item.description} ${localizedText(item)}`, weight: 5 },
   ];
   let score = exactNameMatch ? 40 : 0;
   let possible = exactNameMatch ? 40 : 0;

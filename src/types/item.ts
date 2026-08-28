@@ -1,5 +1,16 @@
 export type ItemStatus = "unclaimed" | "claim-pending";
 
+export interface LocalizedItemText {
+  name: string;
+  category: string;
+  color: string[];
+  description: string;
+  distinctive_features: string[];
+  found_location: string;
+  found_area: string;
+  tags: string[];
+}
+
 export interface LostItem {
   id: string;
   name: string;
@@ -13,6 +24,9 @@ export interface LostItem {
   status: ItemStatus;
   image: string;
   tags: string[];
+  localized?: {
+    "zh-TW": LocalizedItemText;
+  };
 }
 
 export interface SearchInput {
