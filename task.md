@@ -351,12 +351,12 @@ add honest V3 presenter mode
 
 Spec refs: Sections 4 Evaluation Pack, 18.
 
-- [ ] Add English, Traditional Chinese, and mixed-language evaluation fixtures.
-- [ ] Cover persistence, clue correction, score deltas, stale case IDs, cancellation, and human-only claim safety.
-- [ ] Add `docs/WEBMCP_EVALS.md` with exact Chrome and ChatGPT in-app-browser procedures.
-- [ ] Add a manual scorecard that records date, environment, prompt, expected tool sequence, actual sequence, result, and notes.
-- [ ] Record only observed executions; leave unrun external checks clearly pending.
-- [ ] Ensure all 30 localized item names are included in the evaluation coverage.
+- [x] Add English, Traditional Chinese, and mixed-language evaluation fixtures.
+- [x] Cover persistence, clue correction, score deltas, stale case IDs, cancellation, and human-only claim safety.
+- [x] Add `docs/WEBMCP_EVALS.md` with exact Chrome and ChatGPT in-app-browser procedures.
+- [x] Add a manual scorecard that records date, environment, prompt, expected tool sequence, actual sequence, result, and notes.
+- [x] Record only observed executions; leave unrun external checks clearly pending.
+- [x] Ensure all 30 localized item names are included in the evaluation coverage.
 
 Acceptance:
 
@@ -427,5 +427,5 @@ verify and document the V3 casefile release
 | 8 | Complete | `build the bilingual clue correction board` | Typecheck; 140 unit tests; production build; 4 Sites tests; bilingual wallet correction, refresh, and 375px browser checks |
 | 9 | Complete | `expose persistent case context through WebMCP` | Typecheck; 146 unit tests; production build; 4 Sites tests; in-app browser discovered exactly seven registered tools |
 | 10 | Complete | `add honest V3 presenter mode` | Typecheck; 149 unit tests; production build; 4 Sites tests; bilingual controls, one-click reset, and unrelated black-pen browser flow |
-| 11 | Pending | — | — |
+| 11 | Complete | `add V3 WebMCP evaluation coverage` | Typecheck; 156 unit tests including 7 eval tests; production build; 4 Sites tests; external-only runs left explicitly not run |
 | 12 | Pending | — | — |
