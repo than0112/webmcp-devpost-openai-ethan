@@ -207,16 +207,16 @@ localize the persistent case interface
 
 Spec refs: Sections 9, 12 Clue Board, 15 No Candidates.
 
-- [ ] Implement generic `add`, `reject`, and `replace` clue mutations.
-- [ ] Normalize clues before duplicate and conflict checks.
-- [ ] Prevent positive and negative forms of the same canonical clue from remaining active together.
-- [ ] Make replacement atomic and ensure invalid mutations leave state unchanged.
-- [ ] Let human corrections override older inferred query clues.
-- [ ] Add undo-last-mutation using real prior clue state.
-- [ ] Re-run the same deterministic search/matching pipeline after each accepted mutation.
-- [ ] Append a real timeline step and score snapshot for every accepted mutation.
-- [ ] Preserve the case on zero candidates and offer clue correction/removal instead of claim review.
-- [ ] Add duplicate, conflict, replace, invalid, undo, and zero-result tests.
+- [x] Implement generic `add`, `reject`, and `replace` clue mutations.
+- [x] Normalize clues before duplicate and conflict checks.
+- [x] Prevent positive and negative forms of the same canonical clue from remaining active together.
+- [x] Make replacement atomic and ensure invalid mutations leave state unchanged.
+- [x] Let human corrections override older inferred query clues.
+- [x] Add undo-last-mutation using real prior clue state.
+- [x] Re-run the same deterministic search/matching pipeline after each accepted mutation.
+- [x] Append a real timeline step and score snapshot for every accepted mutation.
+- [x] Preserve the case on zero candidates and offer clue correction/removal instead of claim review.
+- [x] Add duplicate, conflict, replace, invalid, undo, and zero-result tests.
 
 Acceptance:
 
@@ -422,7 +422,7 @@ verify and document the V3 casefile release
 | 3 | Complete | `persist the active lost item case` | Typecheck; 94 unit tests; production build; 4 Sites tests; browser refresh/reset check |
 | 4 | Complete | `add native bilingual lost item search` | Typecheck; 125 unit tests; production build; 4 Sites tests |
 | 5 | Complete | `localize the persistent case interface` | Typecheck; 125 unit tests; production build; 4 Sites tests; bilingual desktop/mobile browser checks |
-| 6 | Pending | — | — |
+| 6 | Complete | `add atomic clue correction to casefiles` | Typecheck; 134 unit tests; production build; 4 Sites tests |
 | 7 | Pending | — | — |
 | 8 | Pending | — | — |
 | 9 | Pending | — | — |
