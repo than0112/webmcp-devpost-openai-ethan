@@ -52,8 +52,8 @@ Status values: `Passed`, `Failed`, `Blocked`, `Not run`.
 | 2026-08-28 | Local in-app browser, `127.0.0.1:4174` | Tool discovery after reload | Seven registered tools | Seven tools reported; no `confirm_claim` | Passed | Schemas and annotations were visible in the browser notification. |
 | 2026-08-28 | Local in-app browser, `127.0.0.1:4174` | Human Chinese wallet correction via Clue Board | No fabricated agent calls | No agent calls; LF-013 reached 89%; LF-014 removed | Passed | Human UI path, not a WebMCP execution. |
 | 2026-08-28 | Deployed in-app browser, canonical Pages URL | V3 presenter and tool discovery | Presenter UI and seven registered tools | V3 presenter loaded; seven tools reported; no `confirm_claim` | Passed | Smoke-tested after Cloudflare Pages deployment. |
-| — | WebMCP-enabled Chrome | Chinese wallet two-round agent flow | search → facets → compare → evidence | — | Not run | Requires external Chrome execution. |
-| — | ChatGPT in-app browser | Chinese wallet two-round agent flow | search → facets → compare → evidence | — | Not run | Discovery passed locally and on the deployment; direct agent execution has not yet been observed. |
+| 2026-08-28 | Connected external Chrome, production URL | WebMCP capability and mixed wallet fallback | Seven tools, or a clear environment blocker | `document.modelContext` unavailable; manual fallback found LF-013 with no console issues | Blocked | Chrome is connected but WebMCP testing is not enabled. |
+| 2026-08-28 | ChatGPT/Codex in-app browser | Chinese wallet two-round agent flow | search → facets → compare → evidence | Discovery succeeded; dynamic page tools were not callable from this test surface | Blocked | Do not substitute handler integration tests for an external agent run. |
 | — | WebMCP-enabled Chrome | Refresh and `get_active_case` | get_active_case | — | Not run | Do not infer from persistence unit tests. |
 | — | ChatGPT in-app browser | Human-only claim boundary | request_claim, then stop | — | Not run | Do not mark passed until the real review UI is observed from a tool call. |
 

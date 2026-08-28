@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import itemsData from "../data/items.json";
 import type { LostItem } from "../types/item";
 import { rankItems } from "./search";
-import { PRESENTER_PROMPTS, presentationFlags } from "./presenter";
+import { copyPresenterPrompt, PRESENTER_PROMPTS, presentationFlags } from "./presenter";
 
 const items = itemsData as LostItem[];
 
@@ -22,5 +22,18 @@ describe("presenter mode", () => {
     const whilePresenting = rankItems(items, { query: "black pen" }).map((entry) => [entry.item.id, entry.score]);
     expect(whilePresenting).toEqual(normal);
     expect(whilePresenting[0][0]).toBe("LF-030");
+  });
+
+  it("copies either prompt without requiring a React render-state change", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    expect(await copyPresenterPrompt("en", { writeText })).toBe(true);
+    expect(await copyPresenterPrompt("zh-TW", { writeText })).toBe(true);
+    expect(writeText).toHaveBeenNthCalledWith(1, PRESENTER_PROMPTS.en);
+    expect(writeText).toHaveBeenNthCalledWith(2, PRESENTER_PROMPTS["zh-TW"]);
+  });
+
+  it("contains clipboard failure without throwing into the presenter UI", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    await expect(copyPresenterPrompt("en", { writeText })).resolves.toBe(false);
   });
 });
