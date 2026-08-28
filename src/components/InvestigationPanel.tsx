@@ -5,6 +5,8 @@ import { itemText, useI18n } from "../i18n";
 import type { RankDelta } from "../types/casefile";
 import type { LostItem } from "../types/item";
 import { CandidateMovement } from "./CandidateMovement";
+import { ClueBoard } from "./ClueBoard";
+import type { ClueMutation } from "../lib/clue-mutations";
 
 function EvidenceList({ title, values, tone }: { title: string; values: string[]; tone: "matched" | "unknown" | "contradiction" }) {
   const { t } = useI18n();
@@ -12,17 +14,30 @@ function EvidenceList({ title, values, tone }: { title: string; values: string[]
   return <div className={`evidence-group ${tone}`}><h4><Icon weight="fill" />{title}</h4>{values.length ? <ul>{values.map((value) => <li key={value}>{value}</li>)}</ul> : <p>{t("noneRecorded")}</p>}</div>;
 }
 
-export function InvestigationPanel({ session, facets, evidence, rankDeltas = [], catalogItems = [], onReset, onReview }: {
+export function InvestigationPanel({ session, facets, evidence, rankDeltas = [], catalogItems = [], clueFeedback, canUndoClue = false, onClueMutation, onUndoClue, onReset, onReview }: {
   session: InvestigationSession;
   facets: SearchFacet[];
   evidence?: MatchResult;
   rankDeltas?: RankDelta[];
   catalogItems?: LostItem[];
+  clueFeedback?: string;
+  canUndoClue?: boolean;
+  onClueMutation?: (mutation: ClueMutation) => void;
+  onUndoClue?: () => void;
   onReset: () => void;
   onReview: (itemId: string) => void;
 }) {
   const { locale, t } = useI18n();
   const statusLabels = { searching: t("searching"), needs_clue: t("needsClue"), possible_match: t("possibleMatch"), confirmation_required: t("waitingYou"), completed: t("completed") };
+  const timelineLabels: Record<string, string> = locale === "zh-TW" ? {
+    "timeline.clue_added": "已新增線索",
+    "timeline.clue_rejected": "已排除線索",
+    "timeline.clue_replaced": "已修正線索",
+  } : {
+    "timeline.clue_added": "Clue added",
+    "timeline.clue_rejected": "Clue rejected",
+    "timeline.clue_replaced": "Clue corrected",
+  };
   const evidenceText = evidence ? itemText(evidence.item, locale) : null;
   return (
     <aside className="investigation-panel" aria-label={t("liveInvestigation")}>
@@ -31,7 +46,8 @@ export function InvestigationPanel({ session, facets, evidence, rankDeltas = [],
         <button onClick={onReset} aria-label={t("resetInvestigation")}><X /></button>
       </div>
       <div className="candidate-summary"><strong>{session.candidateIds.length}</strong><span>{session.candidateIds.length === 1 ? t("currentCandidate") : t("currentCandidates")}</span><small>{session.originalQuery}</small></div>
-      <section className="timeline-section"><h4>{t("timeline")}</h4><ol>{session.searches.map((step, index) => <li key={`${step.id}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{step.label}</strong><small>{step.candidateCount} {step.candidateCount === 1 ? t("matchOne") : t("matches")}</small></div></li>)}</ol></section>
+      {onClueMutation && onUndoClue && <ClueBoard clues={session.clues} unknownValues={evidence?.unknown} canUndo={canUndoClue} feedback={clueFeedback} onMutation={onClueMutation} onUndo={onUndoClue} />}
+      <section className="timeline-section"><h4>{t("timeline")}</h4><ol>{session.searches.map((step, index) => <li key={`${step.id}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{timelineLabels[step.label] ?? step.label}</strong><small>{step.candidateCount} {step.candidateCount === 1 ? t("matchOne") : t("matches")}</small></div></li>)}</ol></section>
       {facets[0] && <section className="next-clue"><span><MagnifyingGlass weight="bold" /> {t("suggested")}</span><strong>{facets[0].question_hint}</strong><div>{facets[0].example_values.slice(0, 3).map((value) => <i key={value}>{value}</i>)}</div></section>}
       <CandidateMovement deltas={rankDeltas} items={catalogItems} />
       {evidence && <section className="evidence-card">

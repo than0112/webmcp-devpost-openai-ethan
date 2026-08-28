@@ -25,6 +25,10 @@ import { clearActiveCase, loadActiveCase, saveActiveCase } from "./lib/persisten
 import type { SupportedLocale } from "./types/casefile";
 import { I18nProvider, useI18n } from "./i18n";
 import { CaseHeader } from "./components/CaseHeader";
+import type { RankDelta } from "./types/casefile";
+import type { SearchClue } from "./types/investigation";
+import { applyMutationToCasefile, rebuildCasefileWithClues, undoClueMutation, type ClueMutation } from "./lib/clue-mutations";
+import { calculateRankDeltas } from "./lib/rank-delta";
 
 const items = itemsData as LostItem[];
 const recentIds = ["LF-003", "LF-007", "LF-015", "LF-019"];
@@ -60,7 +64,12 @@ function sessionFromCasefile(casefile: Casefile): InvestigationSession {
 }
 
 function casefileFromSession(session: InvestigationSession, evidence: MatchResult | undefined, claimCandidateId: string | undefined, previous: Casefile | null, locale: SupportedLocale): Casefile {
-  const steps = session.searches.map((step, index) => ({ id: `${step.id}-${index}`, type: stepType(step.label), labelKey: step.label, candidateIds: step.candidateIds, createdAt: step.createdAt }));
+  const preserveCaseSteps = previous?.id === session.id
+    && previous.steps.length === session.searches.length
+    && session.searches.every((step, index) => step.id === previous.steps[index]?.id);
+  const steps = preserveCaseSteps
+    ? previous.steps
+    : session.searches.map((step, index) => ({ id: `${step.id}-${index}`, type: stepType(step.label), labelKey: step.label, candidateIds: step.candidateIds, createdAt: step.createdAt }));
   const latestStep = steps.at(-1);
   const previousSnapshots = previous?.id === session.id ? previous.scoreSnapshots.filter((snapshot) => steps.some((step) => step.id === snapshot.stepId)) : [];
   const scoreSnapshots = [...previousSnapshots];
@@ -115,6 +124,9 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
   const [claimConfirmed, setClaimConfirmed] = useState(restoredCase?.status === "completed");
   const [investigation, setInvestigation] = useState<InvestigationSession | null>(restoredCase ? sessionFromCasefile(restoredCase) : null);
   const [evidence, setEvidence] = useState<MatchResult | undefined>(initialEvidence);
+  const [rankDeltas, setRankDeltas] = useState<RankDelta[]>([]);
+  const [clueUndoStack, setClueUndoStack] = useState<SearchClue[][]>([]);
+  const [clueFeedback, setClueFeedback] = useState("");
   const casefileRef = useRef<Casefile | null>(restoredCase);
   const [storageNotice, setStorageNotice] = useState(() => {
     if (initialCaseLoad.status === "discarded") return "The saved case was invalid and has been safely reset.";
@@ -170,6 +182,47 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
     onEvidence: setEvidence,
   }), [addActivity, highlight, showAgentSearch, startClaim]);
   const { supported: webmcpSupported, reset: resetWebMCP } = useWebMCP(items, webmcpCallbacks);
+
+  const applyCasefileUpdate = useCallback((previous: Casefile, next: Casefile) => {
+    const before = previous.scoreSnapshots.at(-1);
+    const after = next.scoreSnapshots.at(-1);
+    setRankDeltas(before && after ? calculateRankDeltas(before, after, previous.candidateIds, next.candidateIds) : []);
+    casefileRef.current = next;
+    setClaimCandidate(null);
+    setClaimMatch(undefined);
+    setClaimConfirmed(false);
+    setInvestigation(sessionFromCasefile(next));
+    setEvidence(next.bestMatch ? compareItemWithClues(items.find((item) => item.id === next.bestMatch)!, next.clues) : undefined);
+    if (next.bestMatch) highlight(next.bestMatch);
+  }, [highlight]);
+
+  const mutateClue = useCallback((mutation: ClueMutation) => {
+    if (!investigation) return;
+    const current = casefileRef.current ?? casefileFromSession(investigation, evidence, claimCandidate?.id, null, locale);
+    const result = applyMutationToCasefile(current, mutation, items, demoMode ? DEMO_TIMESTAMP : Date.now(), clueUndoStack);
+    if (!result.mutation.ok) {
+      setClueFeedback(locale === "zh-TW" ? "無法套用這項線索修正。" : "That clue correction could not be applied.");
+      return;
+    }
+    if (!result.mutation.changed) {
+      setClueFeedback(locale === "zh-TW" ? "這項線索已存在。" : "This clue is already active.");
+      return;
+    }
+    setClueUndoStack(result.mutation.state.undoStack);
+    setClueFeedback(locale === "zh-TW" ? "線索已更新並重新排序。" : "Clue updated and candidates reranked.");
+    applyCasefileUpdate(current, result.casefile);
+  }, [applyCasefileUpdate, claimCandidate?.id, clueUndoStack, evidence, investigation, locale]);
+
+  const undoClue = useCallback(() => {
+    const current = casefileRef.current;
+    if (!current) return;
+    const undone = undoClueMutation({ clues: current.clues, undoStack: clueUndoStack });
+    if (!undone.changed) return;
+    const next = rebuildCasefileWithClues(current, undone.state.clues, items, "clue_replaced", demoMode ? DEMO_TIMESTAMP : Date.now());
+    setClueUndoStack(undone.state.undoStack);
+    setClueFeedback(locale === "zh-TW" ? "已復原上次線索變更。" : "Last clue change undone.");
+    applyCasefileUpdate(current, next);
+  }, [applyCasefileUpdate, clueUndoStack, locale]);
 
   const runAgentSearch = useCallback((description: string, requestClaim = false) => {
     const naturalLanguage = description.trim() || DEFAULT_DEMO_QUERY;
@@ -242,6 +295,9 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
     casefileRef.current = null;
     setInvestigation(null);
     setEvidence(undefined);
+    setRankDeltas([]);
+    setClueUndoStack([]);
+    setClueFeedback("");
     setActivity([]);
     setHighlightedItem(null);
     setClaimCandidate(null);
@@ -284,7 +340,7 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
                 return <ItemCard key={item.id} item={item} highlighted={highlightedItem === item.id} candidateState={candidateState} onOpen={() => setSelectedItem(item)} />;
               })}</div> : <EmptyState onReset={() => { setQuery(""); setCategory("all"); }} />}
             </div>
-            {investigation && <InvestigationPanel session={investigation} facets={facets} evidence={evidence} catalogItems={items} onReset={resetInvestigation} onReview={(itemId) => setSelectedItem(items.find((item) => item.id === itemId) ?? null)} />}
+            {investigation && <InvestigationPanel session={investigation} facets={facets} evidence={evidence} rankDeltas={rankDeltas} catalogItems={items} clueFeedback={clueFeedback} canUndoClue={clueUndoStack.length > 0} onClueMutation={mutateClue} onUndoClue={undoClue} onReset={resetInvestigation} onReview={(itemId) => setSelectedItem(items.find((item) => item.id === itemId) ?? null)} />}
             {!investigation && demoMode && <InvestigationStandby onRun={runKeysDemo} />}
           </div>
         </section>

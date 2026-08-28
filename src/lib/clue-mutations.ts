@@ -84,26 +84,42 @@ function snapshotFor(stepId: string, ranked: ReturnType<typeof compareItemsWithC
   };
 }
 
-export function applyMutationToCasefile(casefile: Casefile, mutation: ClueMutation, items: LostItem[], createdAt = Date.now()) {
-  const mutationResult = applyClueMutation({ clues: casefile.clues, undoStack: [] }, mutation);
-  if (!mutationResult.ok || !mutationResult.changed) return { mutation: mutationResult, casefile };
-  const allRanked = compareItemsWithClues(items, mutationResult.state.clues);
+export function rebuildCasefileWithClues(
+  casefile: Casefile,
+  clues: SearchClue[],
+  items: LostItem[],
+  stepType: Extract<CaseStepType, "clue_added" | "clue_rejected" | "clue_replaced">,
+  createdAt = Date.now(),
+) {
+  const allRanked = compareItemsWithClues(items, clues);
   const ranked = allRanked.filter((result) => result.score > 0);
   const candidateIds = ranked.slice(0, 10).map((result) => result.item.id);
   const stepId = `step-${createdAt}-${casefile.steps.length}`;
-  const step = { id: stepId, type: mutationResult.stepType, labelKey: `timeline.${mutationResult.stepType}`, candidateIds, createdAt } as const;
+  const step = { id: stepId, type: stepType, labelKey: `timeline.${stepType}`, candidateIds, createdAt } as const;
+  return {
+    ...casefile,
+    clues,
+    candidateIds,
+    bestMatch: candidateIds[0],
+    steps: [...casefile.steps, step],
+    scoreSnapshots: [...casefile.scoreSnapshots, snapshotFor(stepId, allRanked)],
+    status: candidateIds.length ? "possible_match" : "needs_clue",
+    claimCandidateId: undefined,
+    updatedAt: createdAt,
+  } satisfies Casefile;
+}
+
+export function applyMutationToCasefile(
+  casefile: Casefile,
+  mutation: ClueMutation,
+  items: LostItem[],
+  createdAt = Date.now(),
+  undoStack: SearchClue[][] = [],
+) {
+  const mutationResult = applyClueMutation({ clues: casefile.clues, undoStack }, mutation);
+  if (!mutationResult.ok || !mutationResult.changed) return { mutation: mutationResult, casefile };
   return {
     mutation: mutationResult,
-    casefile: {
-      ...casefile,
-      clues: mutationResult.state.clues,
-      candidateIds,
-      bestMatch: candidateIds[0],
-      steps: [...casefile.steps, step],
-      scoreSnapshots: [...casefile.scoreSnapshots, snapshotFor(stepId, allRanked)],
-      status: candidateIds.length ? "possible_match" : "needs_clue",
-      claimCandidateId: undefined,
-      updatedAt: createdAt,
-    } satisfies Casefile,
+    casefile: rebuildCasefileWithClues(casefile, mutationResult.state.clues, items, mutationResult.stepType, createdAt),
   };
 }

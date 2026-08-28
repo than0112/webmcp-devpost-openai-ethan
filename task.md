@@ -266,13 +266,13 @@ explain ranking changes from corrected clues
 
 Spec refs: Section 12 Clue Board and Mobile.
 
-- [ ] Show positive, negative, and unknown clues separately.
-- [ ] Add accessible controls for add, reject, replace, remove/correct, and undo.
-- [ ] Disable duplicate or invalid actions and show a concise localized reason.
-- [ ] Connect controls to the same atomic mutation functions used by agent calls.
-- [ ] Keep candidate cards readable on desktop and mobile without a permanently reserved side panel.
-- [ ] Preserve the viewport-safe claim portal and translated-layout fix.
-- [ ] Add component/integration tests for the principal correction flow.
+- [x] Show positive, negative, and unknown clues separately.
+- [x] Add accessible controls for add, reject, replace, remove/correct, and undo.
+- [x] Disable duplicate or invalid actions and show a concise localized reason.
+- [x] Connect controls to the same atomic mutation functions used by agent calls.
+- [x] Keep candidate cards readable on desktop and mobile without a permanently reserved side panel.
+- [x] Preserve the viewport-safe claim portal and translated-layout fix.
+- [x] Add component/integration tests for the principal correction flow.
 
 Acceptance:
 
@@ -424,7 +424,7 @@ verify and document the V3 casefile release
 | 5 | Complete | `localize the persistent case interface` | Typecheck; 125 unit tests; production build; 4 Sites tests; bilingual desktop/mobile browser checks |
 | 6 | Complete | `add atomic clue correction to casefiles` | Typecheck; 134 unit tests; production build; 4 Sites tests |
 | 7 | Complete | `explain ranking changes from corrected clues` | Typecheck; 138 unit tests; production build; 4 Sites tests |
-| 8 | Pending | — | — |
+| 8 | Complete | `build the bilingual clue correction board` | Typecheck; 140 unit tests; production build; 4 Sites tests; bilingual wallet correction, refresh, and 375px browser checks |
 | 9 | Pending | — | — |
 | 10 | Pending | — | — |
 | 11 | Pending | — | — |
