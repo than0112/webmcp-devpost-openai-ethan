@@ -237,15 +237,15 @@ add atomic clue correction to casefiles
 
 Spec refs: Sections 10, 12 Candidate Movement.
 
-- [ ] Preserve score and breakdown snapshots for every search step.
-- [ ] Implement `up`, `down`, `same`, `entered`, and `removed` rank movements.
-- [ ] Calculate exact score delta as current minus previous.
-- [ ] Keep item-ID ascending tie-breaking.
-- [ ] Derive changed evidence only from added, removed, or changed breakdown entries.
-- [ ] Add a Candidate Movement UI that includes text/icons and does not rely only on color.
-- [ ] Display exact score change and causal evidence without calling it probability or certainty.
-- [ ] Respect reduced-motion preferences.
-- [ ] Add complete rank-delta and evidence-diff tests.
+- [x] Preserve score and breakdown snapshots for every search step.
+- [x] Implement `up`, `down`, `same`, `entered`, and `removed` rank movements.
+- [x] Calculate exact score delta as current minus previous.
+- [x] Keep item-ID ascending tie-breaking.
+- [x] Derive changed evidence only from added, removed, or changed breakdown entries.
+- [x] Add a Candidate Movement UI that includes text/icons and does not rely only on color.
+- [x] Display exact score change and causal evidence without calling it probability or certainty.
+- [x] Respect reduced-motion preferences.
+- [x] Add complete rank-delta and evidence-diff tests.
 
 Acceptance:
 
@@ -423,7 +423,7 @@ verify and document the V3 casefile release
 | 4 | Complete | `add native bilingual lost item search` | Typecheck; 125 unit tests; production build; 4 Sites tests |
 | 5 | Complete | `localize the persistent case interface` | Typecheck; 125 unit tests; production build; 4 Sites tests; bilingual desktop/mobile browser checks |
 | 6 | Complete | `add atomic clue correction to casefiles` | Typecheck; 134 unit tests; production build; 4 Sites tests |
-| 7 | Pending | — | — |
+| 7 | Complete | `explain ranking changes from corrected clues` | Typecheck; 138 unit tests; production build; 4 Sites tests |
 | 8 | Pending | — | — |
 | 9 | Pending | — | — |
 | 10 | Pending | — | — |

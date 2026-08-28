@@ -284,7 +284,7 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
                 return <ItemCard key={item.id} item={item} highlighted={highlightedItem === item.id} candidateState={candidateState} onOpen={() => setSelectedItem(item)} />;
               })}</div> : <EmptyState onReset={() => { setQuery(""); setCategory("all"); }} />}
             </div>
-            {investigation && <InvestigationPanel session={investigation} facets={facets} evidence={evidence} onReset={resetInvestigation} onReview={(itemId) => setSelectedItem(items.find((item) => item.id === itemId) ?? null)} />}
+            {investigation && <InvestigationPanel session={investigation} facets={facets} evidence={evidence} catalogItems={items} onReset={resetInvestigation} onReview={(itemId) => setSelectedItem(items.find((item) => item.id === itemId) ?? null)} />}
             {!investigation && demoMode && <InvestigationStandby onRun={runKeysDemo} />}
           </div>
         </section>

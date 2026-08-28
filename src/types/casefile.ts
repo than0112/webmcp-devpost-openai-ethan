@@ -34,6 +34,24 @@ export interface ScoreSnapshot {
   breakdowns: Record<string, EvidenceBreakdown[]>;
 }
 
+export type RankMovement = "up" | "down" | "same" | "entered" | "removed";
+
+export interface ChangedEvidence extends EvidenceBreakdown {
+  change: "added" | "removed" | "changed";
+  previousPoints?: number;
+}
+
+export interface RankDelta {
+  item_id: string;
+  previous_rank?: number;
+  current_rank?: number;
+  previous_score?: number;
+  current_score?: number;
+  score_delta: number;
+  movement: RankMovement;
+  changed_evidence: ChangedEvidence[];
+}
+
 export interface Casefile {
   version: 1;
   id: string;

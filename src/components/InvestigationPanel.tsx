@@ -2,6 +2,9 @@ import { ArrowSquareOut, CheckCircle, Circle, MagnifyingGlass, Question, ShieldW
 import type { MatchResult } from "../types/item";
 import type { InvestigationSession, SearchFacet } from "../types/investigation";
 import { itemText, useI18n } from "../i18n";
+import type { RankDelta } from "../types/casefile";
+import type { LostItem } from "../types/item";
+import { CandidateMovement } from "./CandidateMovement";
 
 function EvidenceList({ title, values, tone }: { title: string; values: string[]; tone: "matched" | "unknown" | "contradiction" }) {
   const { t } = useI18n();
@@ -9,10 +12,12 @@ function EvidenceList({ title, values, tone }: { title: string; values: string[]
   return <div className={`evidence-group ${tone}`}><h4><Icon weight="fill" />{title}</h4>{values.length ? <ul>{values.map((value) => <li key={value}>{value}</li>)}</ul> : <p>{t("noneRecorded")}</p>}</div>;
 }
 
-export function InvestigationPanel({ session, facets, evidence, onReset, onReview }: {
+export function InvestigationPanel({ session, facets, evidence, rankDeltas = [], catalogItems = [], onReset, onReview }: {
   session: InvestigationSession;
   facets: SearchFacet[];
   evidence?: MatchResult;
+  rankDeltas?: RankDelta[];
+  catalogItems?: LostItem[];
   onReset: () => void;
   onReview: (itemId: string) => void;
 }) {
@@ -28,6 +33,7 @@ export function InvestigationPanel({ session, facets, evidence, onReset, onRevie
       <div className="candidate-summary"><strong>{session.candidateIds.length}</strong><span>{session.candidateIds.length === 1 ? t("currentCandidate") : t("currentCandidates")}</span><small>{session.originalQuery}</small></div>
       <section className="timeline-section"><h4>{t("timeline")}</h4><ol>{session.searches.map((step, index) => <li key={`${step.id}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{step.label}</strong><small>{step.candidateCount} {step.candidateCount === 1 ? t("matchOne") : t("matches")}</small></div></li>)}</ol></section>
       {facets[0] && <section className="next-clue"><span><MagnifyingGlass weight="bold" /> {t("suggested")}</span><strong>{facets[0].question_hint}</strong><div>{facets[0].example_values.slice(0, 3).map((value) => <i key={value}>{value}</i>)}</div></section>}
+      <CandidateMovement deltas={rankDeltas} items={catalogItems} />
       {evidence && <section className="evidence-card">
         <div className="evidence-heading"><div><span>{evidence.item.id}</span><h4>{evidenceText?.name}</h4></div><strong className={`strength ${evidence.match_strength}`}>{evidence.match_strength} {t("match")}</strong></div>
         <div className="match-score"><strong>{Math.round(evidence.score * 100)}%</strong><span>{t("matchScore")}</span></div>
