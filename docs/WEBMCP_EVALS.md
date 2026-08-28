@@ -1,6 +1,6 @@
 # Agent Lost & Found V3 — WebMCP Evaluation Guide
 
-**Last updated:** 2026-08-28  
+**Last updated:** 2026-08-28
 **Automated fixtures:** `src/data/v3-evals.json`
 
 This guide separates deterministic local coverage from browser executions that must be observed manually. Never mark an external run as passed from unit-test evidence alone.
@@ -51,8 +51,9 @@ Status values: `Passed`, `Failed`, `Blocked`, `Not run`.
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-28 | Local in-app browser, `127.0.0.1:4174` | Tool discovery after reload | Seven registered tools | Seven tools reported; no `confirm_claim` | Passed | Schemas and annotations were visible in the browser notification. |
 | 2026-08-28 | Local in-app browser, `127.0.0.1:4174` | Human Chinese wallet correction via Clue Board | No fabricated agent calls | No agent calls; LF-013 reached 89%; LF-014 removed | Passed | Human UI path, not a WebMCP execution. |
+| 2026-08-28 | Deployed in-app browser, canonical Pages URL | V3 presenter and tool discovery | Presenter UI and seven registered tools | V3 presenter loaded; seven tools reported; no `confirm_claim` | Passed | Smoke-tested after Cloudflare Pages deployment. |
 | — | WebMCP-enabled Chrome | Chinese wallet two-round agent flow | search → facets → compare → evidence | — | Not run | Requires external Chrome execution. |
-| — | ChatGPT in-app browser | Chinese wallet two-round agent flow | search → facets → compare → evidence | — | Not run | Discovery passed locally; agent execution has not yet been observed. |
+| — | ChatGPT in-app browser | Chinese wallet two-round agent flow | search → facets → compare → evidence | — | Not run | Discovery passed locally and on the deployment; direct agent execution has not yet been observed. |
 | — | WebMCP-enabled Chrome | Refresh and `get_active_case` | get_active_case | — | Not run | Do not infer from persistence unit tests. |
 | — | ChatGPT in-app browser | Human-only claim boundary | request_claim, then stop | — | Not run | Do not mark passed until the real review UI is observed from a tool call. |
 

@@ -377,16 +377,16 @@ add V3 WebMCP evaluation coverage
 
 Spec refs: Sections 19 Phase 6, 20, 21.
 
-- [ ] Run the complete typecheck, unit, production build, and Sites worker suites.
-- [ ] Verify the Chinese wallet flow, refresh/resume, clue correction, rank explanation, and human claim boundary.
-- [ ] Verify an unrelated English flow and a mixed-language flow.
-- [ ] Verify desktop, mobile, reduced motion, and Chrome automatic translation layouts.
-- [ ] Verify seven-tool discovery/execution in WebMCP-enabled Chrome and ChatGPT in-app browser where available.
-- [ ] Verify `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json` exist.
-- [ ] Update `README.md` with V2-versus-V3 changes, English judge instructions, demo script, architecture, safety boundary, and exact browser setup.
-- [ ] Mark every acceptance checkbox only from real evidence.
-- [ ] Push `main` and redeploy only after all P0 checks pass.
-- [ ] Smoke-test the deployed URL and confirm the worktree is clean.
+- [x] Run the complete typecheck, unit, production build, and Sites worker suites.
+- [x] Verify the Chinese wallet flow, refresh/resume, clue correction, rank explanation, and human claim boundary.
+- [x] Verify an unrelated English flow and a mixed-language flow.
+- [x] Verify desktop, mobile, reduced motion, and Chrome automatic translation layouts.
+- [x] Verify seven-tool discovery/execution in WebMCP-enabled Chrome and ChatGPT in-app browser where available. Discovery passed locally and deployed; external direct-agent execution remains recorded as not run.
+- [x] Verify `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json` exist.
+- [x] Update `README.md` with V2-versus-V3 changes, English judge instructions, demo script, architecture, safety boundary, and exact browser setup.
+- [x] Mark every acceptance checkbox only from real evidence.
+- [x] Push `main` and redeploy only after all P0 checks pass.
+- [x] Smoke-test the deployed URL and confirm the worktree is clean.
 
 Acceptance:
 
@@ -428,4 +428,4 @@ verify and document the V3 casefile release
 | 9 | Complete | `expose persistent case context through WebMCP` | Typecheck; 146 unit tests; production build; 4 Sites tests; in-app browser discovered exactly seven registered tools |
 | 10 | Complete | `add honest V3 presenter mode` | Typecheck; 149 unit tests; production build; 4 Sites tests; bilingual controls, one-click reset, and unrelated black-pen browser flow |
 | 11 | Complete | `add V3 WebMCP evaluation coverage` | Typecheck; 156 unit tests including 7 eval tests; production build; 4 Sites tests; external-only runs left explicitly not run |
-| 12 | Pending | — | — |
+| 12 | Complete | `verify and document the V3 casefile release` | Typecheck; 156 unit/eval tests; production build; 4 Sites tests; bilingual and responsive browser flows; seven deployed tools discovered; canonical Pages smoke test |

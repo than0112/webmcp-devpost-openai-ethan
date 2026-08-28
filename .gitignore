@@ -3,3 +3,4 @@ dist/
 .firecrawl/
 *.log
 .DS_Store
+.devpost-hackathon-state.json
