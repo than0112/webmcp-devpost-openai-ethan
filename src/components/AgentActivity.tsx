@@ -4,15 +4,15 @@ import { useI18n } from "../i18n";
 
 export interface ActivityEntry { tool: string; message: string; state: "done" | "active"; }
 
-export function AgentActivity({ supported, entries, onDemo }: { supported: boolean; entries: ActivityEntry[]; onDemo: () => void }) {
+export function AgentActivity({ supported, entries, onDemo, present = false }: { supported: boolean; entries: ActivityEntry[]; onDemo: () => void; present?: boolean }) {
   const { t } = useI18n();
-  const [collapsed, setCollapsed] = useState(() => window.matchMedia("(max-width: 680px)").matches);
+  const [collapsed, setCollapsed] = useState(() => !present && window.matchMedia("(max-width: 680px)").matches);
   useEffect(() => {
     const media = window.matchMedia("(max-width: 680px)");
-    const handleChange = (event: MediaQueryListEvent) => setCollapsed(event.matches);
+    const handleChange = (event: MediaQueryListEvent) => setCollapsed(!present && event.matches);
     media.addEventListener("change", handleChange);
     return () => media.removeEventListener("change", handleChange);
-  }, []);
+  }, [present]);
   return (
     <aside className={collapsed ? "activity-panel collapsed" : "activity-panel"} aria-label={t("agentActivity")}>
       <button className="activity-title" onClick={() => setCollapsed((value) => !value)}><span><Robot weight="fill" /> {t("agentActivity")}</span><CaretDown /></button>

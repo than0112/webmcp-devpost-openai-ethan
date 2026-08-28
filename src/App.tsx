@@ -29,11 +29,14 @@ import type { RankDelta } from "./types/casefile";
 import type { SearchClue } from "./types/investigation";
 import { applyMutationToCasefile, rebuildCasefileWithClues, undoClueMutation, type ClueMutation } from "./lib/clue-mutations";
 import { calculateRankDeltas } from "./lib/rank-delta";
+import { presentationFlags } from "./lib/presenter";
+import { PresenterControls } from "./components/PresenterControls";
 
 const items = itemsData as LostItem[];
 const recentIds = ["LF-003", "LF-007", "LF-015", "LF-019"];
 const DEFAULT_DEMO_QUERY = `${KEYS_DEMO_INITIAL_QUERY}. ${KEYS_DEMO_FOLLOWUP}`;
 const demoMode = new URLSearchParams(window.location.search).get("demo") === "true";
+const presentMode = presentationFlags(window.location.search).present;
 const catalogIds = new Set(items.map((item) => item.id));
 
 function loadInitialCase() {
@@ -290,8 +293,8 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
     highlight(result.evidence.item.id);
   }, [browse, highlight]);
 
-  const resetInvestigation = useCallback(() => {
-    if (investigation && !window.confirm(t("resetConfirm"))) return;
+  const resetInvestigation = useCallback((skipConfirmation = false) => {
+    if (!skipConfirmation && investigation && !window.confirm(t("resetConfirm"))) return;
     resetWebMCP();
     try { clearActiveCase(window.localStorage); } catch { /* The in-memory reset still succeeds. */ }
     casefileRef.current = null;
@@ -313,8 +316,9 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
   const previewDemo = useCallback(() => query.trim() ? runAgentSearch(query, true) : runKeysDemo(), [query, runAgentSearch, runKeysDemo]);
 
   return (
-    <div className="app-shell">
+    <div className={presentMode ? "app-shell present-mode" : "app-shell"}>
       <Header onBrowse={browse} locale={locale} onLocale={onLocale} />
+      {presentMode && <PresenterControls onReset={() => resetInvestigation(true)} />}
       {storageNotice && <div className="storage-notice" role="status"><span>{storageNotice}</span><button onClick={() => setStorageNotice("")} aria-label="Dismiss storage notice">×</button></div>}
       <main>
         <Hero onBrowse={browse} onDemo={previewDemo} />
@@ -348,7 +352,7 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
         </section>
       </main>
       <footer><div className="brand footer-brand">Agent Lost <i>&amp;</i> Found</div><p>{t("tagline")}</p><span>{t("built")}</span></footer>
-      <AgentActivity supported={webmcpSupported} entries={activity} onDemo={previewDemo} />
+      <AgentActivity supported={webmcpSupported} entries={activity} onDemo={previewDemo} present={presentMode} />
       {selectedItem && <ItemDetail item={selectedItem} onClose={() => setSelectedItem(null)} onClaim={() => startClaim(selectedItem)} />}
       {claimCandidate && <ClaimModal item={claimCandidate} match={claimMatch} confirmed={claimConfirmed} onCancel={() => { setClaimCandidate(null); setClaimConfirmed(false); }} onConfirm={() => { setClaimConfirmed(true); setInvestigation((current) => current ? { ...current, status: "completed" } : current); setActivity((current) => current.map((entry) => entry.tool === "request_claim" ? { ...entry, message: "Confirmed by human", state: "done" } : entry)); }} />}
     </div>

@@ -324,13 +324,13 @@ expose persistent case context through WebMCP
 
 Spec refs: Sections 4 Presenter Mode, 13.
 
-- [ ] Add `?present=true` as a presentation-only display mode.
-- [ ] Provide copyable approved English and Traditional Chinese demo prompts.
-- [ ] Add compact one-click reset and more readable Agent Activity.
-- [ ] Reduce nonessential navigation and stabilize presentation timing/layout.
-- [ ] Support `?demo=true&present=true` together.
-- [ ] Confirm presenter mode never preselects an item, changes ranking, fabricates calls, or auto-confirms a claim.
-- [ ] Add regression tests comparing normal and presenter-mode engine outputs.
+- [x] Add `?present=true` as a presentation-only display mode.
+- [x] Provide copyable approved English and Traditional Chinese demo prompts.
+- [x] Add compact one-click reset and more readable Agent Activity.
+- [x] Reduce nonessential navigation and stabilize presentation timing/layout.
+- [x] Support `?demo=true&present=true` together.
+- [x] Confirm presenter mode never preselects an item, changes ranking, fabricates calls, or auto-confirms a claim.
+- [x] Add regression tests comparing normal and presenter-mode engine outputs.
 
 Acceptance:
 
@@ -426,6 +426,6 @@ verify and document the V3 casefile release
 | 7 | Complete | `explain ranking changes from corrected clues` | Typecheck; 138 unit tests; production build; 4 Sites tests |
 | 8 | Complete | `build the bilingual clue correction board` | Typecheck; 140 unit tests; production build; 4 Sites tests; bilingual wallet correction, refresh, and 375px browser checks |
 | 9 | Complete | `expose persistent case context through WebMCP` | Typecheck; 146 unit tests; production build; 4 Sites tests; in-app browser discovered exactly seven registered tools |
-| 10 | Pending | — | — |
+| 10 | Complete | `add honest V3 presenter mode` | Typecheck; 149 unit tests; production build; 4 Sites tests; bilingual controls, one-click reset, and unrelated black-pen browser flow |
 | 11 | Pending | — | — |
 | 12 | Pending | — | — |
