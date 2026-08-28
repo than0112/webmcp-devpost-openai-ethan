@@ -180,6 +180,8 @@ function AppContent({ locale, onLocale }: { locale: SupportedLocale; onLocale: (
     onClaim: startClaim,
     onInvestigation: (session: InvestigationSession | null) => { setInvestigation(session); if (!session) setEvidence(undefined); },
     onEvidence: setEvidence,
+    getActiveInvestigation: () => casefileRef.current ? sessionFromCasefile(casefileRef.current) : null,
+    getActiveCase: () => casefileRef.current,
   }), [addActivity, highlight, showAgentSearch, startClaim]);
   const { supported: webmcpSupported, reset: resetWebMCP } = useWebMCP(items, webmcpCallbacks);
 

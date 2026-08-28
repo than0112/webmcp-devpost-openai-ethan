@@ -293,17 +293,17 @@ build the bilingual clue correction board
 
 Spec refs: Sections 11, 14, 15.
 
-- [ ] Preserve and upgrade the six V2 tools.
-- [ ] Add only `get_active_case`, producing exactly seven registered tools.
-- [ ] Add optional `case_id` and internal `session_id` migration where required.
-- [ ] Reject missing/stale IDs without mutating another case.
-- [ ] Use `type: "object"` and `additionalProperties: false` for every schema.
-- [ ] Mark truly read-only tools with `readOnlyHint: true`; stateful tools use `false`.
-- [ ] Apply `untrustedContentHint` to responses containing user-authored or catalog/external text where supported.
-- [ ] Accept the execution callback `{ signal }` and check cancellation before committing state.
-- [ ] Keep outputs compact and synchronized with visible React state.
-- [ ] Ensure `request_claim` opens human review only and no confirmation tool exists.
-- [ ] Add schema, registration, stale-ID, restoration, annotation, cancellation, and claim-safety tests.
+- [x] Preserve and upgrade the six V2 tools.
+- [x] Add only `get_active_case`, producing exactly seven registered tools.
+- [x] Add optional `case_id` and internal `session_id` migration where required.
+- [x] Reject missing/stale IDs without mutating another case.
+- [x] Use `type: "object"` and `additionalProperties: false` for every schema.
+- [x] Mark truly read-only tools with `readOnlyHint: true`; stateful tools use `false`.
+- [x] Apply `untrustedContentHint` to responses containing user-authored or catalog/external text where supported.
+- [x] Accept the execution callback `{ signal }` and check cancellation before committing state.
+- [x] Keep outputs compact and synchronized with visible React state.
+- [x] Ensure `request_claim` opens human review only and no confirmation tool exists.
+- [x] Add schema, registration, stale-ID, restoration, annotation, cancellation, and claim-safety tests.
 
 Acceptance:
 
@@ -425,7 +425,7 @@ verify and document the V3 casefile release
 | 6 | Complete | `add atomic clue correction to casefiles` | Typecheck; 134 unit tests; production build; 4 Sites tests |
 | 7 | Complete | `explain ranking changes from corrected clues` | Typecheck; 138 unit tests; production build; 4 Sites tests |
 | 8 | Complete | `build the bilingual clue correction board` | Typecheck; 140 unit tests; production build; 4 Sites tests; bilingual wallet correction, refresh, and 375px browser checks |
-| 9 | Pending | — | — |
+| 9 | Complete | `expose persistent case context through WebMCP` | Typecheck; 146 unit tests; production build; 4 Sites tests; in-app browser discovered exactly seven registered tools |
 | 10 | Pending | — | — |
 | 11 | Pending | — | — |
 | 12 | Pending | — | — |

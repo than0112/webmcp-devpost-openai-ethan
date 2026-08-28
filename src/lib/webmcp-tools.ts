@@ -1,10 +1,13 @@
 import type { ActivityEntry } from "../components/AgentActivity";
+import { itemText } from "../i18n";
+import type { Casefile, SupportedLocale } from "../types/casefile";
 import type { LostItem, SearchInput, SearchResult, UserDescription } from "../types/item";
 import type { InvestigationSession, SearchClue } from "../types/investigation";
 import { getSearchFacets } from "./facets";
 import { createInvestigationSession, createSearchStep, investigationReducer, mergeSearchClues } from "./investigation";
 import { compareItemWithClues, compareItemsWithClues, descriptionToClues } from "./matching";
 import { rankItems, selectRelevantResults } from "./search";
+import { calculateRankDeltas, changedEvidence } from "./rank-delta";
 
 export interface WebMCPCallbacks {
   onActivity: (entry: ActivityEntry) => void;
@@ -13,140 +16,80 @@ export interface WebMCPCallbacks {
   onClaim: (item: LostItem, description?: UserDescription) => void;
   onInvestigation?: (session: InvestigationSession | null) => void;
   onEvidence?: (result: ReturnType<typeof compareItemWithClues>) => void;
+  getActiveInvestigation?: () => InvestigationSession | null;
+  getActiveCase?: () => Casefile | null;
 }
 
-export interface InvestigationStore {
-  get: () => InvestigationSession | null;
-  set: (session: InvestigationSession | null) => void;
-}
-
-export interface SearchLostItemsInput {
-  session_id?: string;
-  query: string;
-  category?: string;
-  colors?: string[];
-  color?: string;
-  features?: string[];
-  location?: string;
-  date?: string;
-  negative_clues?: string[];
-  limit?: number;
-}
-
-export interface KnownCluesInput {
-  query?: string;
-  category?: string;
-  colors?: string[];
-  features?: string[];
-  location?: string;
-  date?: string;
-}
-
-export interface CompareItemsInput {
-  session_id?: string;
-  item_ids: string[];
-  known_clues?: KnownCluesInput;
-  negative_clues?: string[];
-}
-
+export interface InvestigationStore { get: () => InvestigationSession | null; set: (session: InvestigationSession | null) => void; }
+export interface SearchLostItemsInput { case_id?: string; session_id?: string; query: string; category?: string; colors?: string[]; color?: string; features?: string[]; location?: string; date?: string; negative_clues?: string[]; locale?: SupportedLocale; limit?: number; }
+export interface KnownCluesInput { query?: string; category?: string; colors?: string[]; features?: string[]; location?: string; date?: string; }
+export interface CompareItemsInput { case_id?: string; session_id?: string; item_ids: string[]; known_clues?: KnownCluesInput; negative_clues?: string[]; }
 interface ToolContext { signal?: AbortSignal }
-export interface ToolDefinition {
-  name: string;
-  title: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  annotations: { readOnlyHint: boolean; untrustedContentHint: boolean };
-  execute: (input: any, context?: ToolContext) => unknown | Promise<unknown>;
-}
+export interface ToolDefinition { name: string; title: string; description: string; inputSchema: Record<string, unknown>; annotations: { readOnlyHint: boolean; untrustedContentHint: boolean }; execute: (input: any, context?: ToolContext) => unknown | Promise<unknown>; }
 
 const commonSchema = { type: "object", additionalProperties: false } as const;
+const caseProperties = { case_id: { type: "string" }, session_id: { type: "string", description: "Deprecated V2 alias for case_id." } };
+const localeProperty = { locale: { type: "string", enum: ["en", "zh-TW"] } };
+const knownCluesSchema = { ...commonSchema, properties: { query: { type: "string" }, category: { type: "string" }, colors: { type: "array", items: { type: "string" } }, features: { type: "array", items: { type: "string" } }, location: { type: "string" }, date: { type: "string" } } };
 
-function cluesFromKnown(known: KnownCluesInput = {}, negatives: string[] = []) {
-  return descriptionToClues({ query: known.query, category: known.category, colors: known.colors, features: known.features, location: known.location, date: known.date }, negatives);
+function cluesFromKnown(known: KnownCluesInput = {}, negatives: string[] = []) { return descriptionToClues({ query: known.query, category: known.category, colors: known.colors, features: known.features, location: known.location, date: known.date }, negatives); }
+function cluesFromSearch(input: SearchLostItemsInput): SearchClue[] { return descriptionToClues({ query: input.query, category: input.category, colors: input.colors ?? (input.color ? [input.color] : undefined), features: input.features, location: input.location, date: input.date }, input.negative_clues); }
+function descriptionFromClues(clues: SearchClue[]): UserDescription { const values = (kind: SearchClue["kind"]) => clues.filter((clue) => clue.kind === kind).map((clue) => clue.value); return { query: values("query").join(" "), category: values("category").at(-1), colors: values("color"), features: values("feature"), location: values("location").at(-1), date: values("date").at(-1) }; }
+function requestedCaseId(input: { case_id?: string; session_id?: string }) { if (input.case_id && input.session_id && input.case_id !== input.session_id) return { error: { code: "conflicting_case_id", message: "case_id and session_id must identify the same case." } } as const; return input.case_id ?? input.session_id; }
+function staleCaseError(caseId: string) { return { error: { code: "invalid_case", message: `Case ${caseId} is missing or stale.` } }; }
+function activeSession(store: InvestigationStore, callbacks: WebMCPCallbacks) {
+  const visible = callbacks.getActiveInvestigation?.() ?? null;
+  const stored = store.get();
+  const current = visible && stored?.id === visible.id && stored.searches.length > visible.searches.length ? stored : visible ?? stored;
+  if (current && store.get() !== current) store.set(current);
+  return current;
 }
-
-function cluesFromSearch(input: SearchLostItemsInput): SearchClue[] {
-  return descriptionToClues({ query: input.query, category: input.category, colors: input.colors ?? (input.color ? [input.color] : undefined), features: input.features, location: input.location, date: input.date }, input.negative_clues);
-}
-
-function descriptionFromClues(clues: SearchClue[]): UserDescription {
-  const values = (kind: SearchClue["kind"]) => clues.filter((clue) => clue.kind === kind).map((clue) => clue.value);
-  return { query: values("query").join(" "), category: values("category").at(-1), colors: values("color"), features: values("feature"), location: values("location").at(-1), date: values("date").at(-1) };
-}
-
-function staleSessionError(sessionId: string) {
-  return { error: { code: "invalid_session", message: `Session ${sessionId} is missing or stale.` } };
-}
-
-function requireSession(store: InvestigationStore, sessionId: string) {
-  const session = store.get();
-  return session?.id === sessionId ? session : null;
-}
-
-function publishSession(store: InvestigationStore, callbacks: WebMCPCallbacks, session: InvestigationSession | null) {
-  store.set(session);
-  callbacks.onInvestigation?.(session);
-}
-
-function matchShape(result: ReturnType<typeof compareItemWithClues>) {
-  return { item_id: result.item.id, name: result.item.name, score: result.score, match_strength: result.match_strength, matched: result.matched, unknown: result.unknown, contradictions: result.contradictions };
-}
+function requireCase(store: InvestigationStore, callbacks: WebMCPCallbacks, caseId: string) { const session = activeSession(store, callbacks); return session?.id === caseId ? session : null; }
+function publishSession(store: InvestigationStore, callbacks: WebMCPCallbacks, session: InvestigationSession | null) { store.set(session); callbacks.onInvestigation?.(session); }
+function matchShape(result: ReturnType<typeof compareItemWithClues>, rank?: number) { return { item_id: result.item.id, name: result.item.name, rank, score: result.score, match_strength: result.match_strength, matched: result.matched, unknown: result.unknown, contradictions: result.contradictions }; }
+function compactRankChanges(previous: string[], current: string[]) { return [...new Set([...previous, ...current])].map((itemId) => { const before = previous.indexOf(itemId); const after = current.indexOf(itemId); return { item_id: itemId, previous_rank: before < 0 ? undefined : before + 1, current_rank: after < 0 ? undefined : after + 1, movement: before < 0 ? "entered" : after < 0 ? "removed" : after < before ? "up" : after > before ? "down" : "same" }; }); }
+const ZH_FACET_QUESTIONS = { category: "物品是哪一種類型？", color: "物品是什麼顏色？", distinctive_features: "是否有特殊特徵或吊飾？", location: "可能遺失在哪裡？", area: "當時位於哪個區域？", tags: "下列哪個細節最符合？" } as const;
+function localizedFacets(facets: ReturnType<typeof getSearchFacets>, locale: SupportedLocale = "en") { return locale === "zh-TW" ? facets.map((facet) => ({ ...facet, question_hint: ZH_FACET_QUESTIONS[facet.field] })) : facets; }
+function abort(context?: ToolContext) { context?.signal?.throwIfAborted(); }
 
 export function createWebMCPTools(items: LostItem[], callbacks: WebMCPCallbacks, store: InvestigationStore, runtime: { createId?: () => string; now?: () => number } = {}): ToolDefinition[] {
   const createId = runtime.createId ?? (() => crypto.randomUUID());
   const now = runtime.now ?? (() => Date.now());
   return [
     {
-      name: "search_lost_items", title: "Search lost items",
-      description: "Create or continue a lost-item investigation from natural-language and structured clues. Returns deterministic ranked candidates and a session ID.",
-      inputSchema: { ...commonSchema, properties: { session_id: { type: "string" }, query: { type: "string", minLength: 1 }, category: { type: "string" }, colors: { type: "array", items: { type: "string" } }, features: { type: "array", items: { type: "string" } }, location: { type: "string" }, date: { type: "string" }, negative_clues: { type: "array", items: { type: "string" } }, limit: { type: "integer", minimum: 1, maximum: 10, default: 5 } }, required: ["query"] },
-      annotations: { readOnlyHint: true, untrustedContentHint: false },
-      execute: (input: SearchLostItemsInput, context) => {
-        context?.signal?.throwIfAborted();
-        if (!input.query?.trim()) return { error: { code: "validation_error", message: "query must be a non-empty string." } };
-        const incoming = cluesFromSearch(input);
-        const current = input.session_id ? requireSession(store, input.session_id) : null;
-        if (input.session_id && !current) return staleSessionError(input.session_id);
-        const clues = current ? mergeSearchClues(current.clues, incoming) : incoming;
-        const description = descriptionFromClues(clues);
-        const searchInput: SearchInput = { query: [description.query, ...(description.colors ?? []), ...(description.features ?? [])].filter(Boolean).join(" "), category: description.category, location: description.location, date: description.date };
-        const sourceItems = current ? items.filter((item) => current.candidateIds.includes(item.id)) : items;
-        const ranked = selectRelevantResults(rankItems(sourceItems, searchInput, { strictFilters: false }));
-        const limit = Math.max(1, Math.min(10, input.limit ?? 5));
-        const candidateIds = ranked.map((result) => result.item.id);
-        const session = current
-          ? investigationReducer(current, { type: "search", sessionId: current.id, clues: incoming, candidateIds, label: input.query, createdAt: now() })!
-          : createInvestigationSession({ id: createId(), originalQuery: input.query, clues, candidateIds, createdAt: now() });
-        publishSession(store, callbacks, session);
-        callbacks.onSearch(searchInput, ranked.slice(0, limit));
-        callbacks.onActivity({ tool: "search_lost_items", message: `Ranked ${ranked.length} candidate${ranked.length === 1 ? "" : "s"}`, state: "done" });
-        return { session_id: session.id, query: input.query, candidate_count: ranked.length, status: session.status, results: ranked.slice(0, limit).map((result) => ({ item_id: result.item.id, name: result.item.name, score: result.confidence, match_strength: result.confidence >= 0.85 ? "strong" : result.confidence >= 0.65 ? "possible" : result.confidence >= 0.4 ? "weak" : "unlikely", matched_terms: result.matched_terms, matched_fields: result.matched_fields })) };
-      },
+      name: "search_lost_items", title: "Search lost items", description: "Create or continue a persistent bilingual lost-item case and return deterministic ranked candidates with compact rank changes.",
+      inputSchema: { ...commonSchema, properties: { ...caseProperties, query: { type: "string", minLength: 1 }, category: { type: "string" }, colors: { type: "array", items: { type: "string" } }, features: { type: "array", items: { type: "string" } }, location: { type: "string" }, date: { type: "string" }, negative_clues: { type: "array", items: { type: "string" } }, ...localeProperty, limit: { type: "integer", minimum: 1, maximum: 10, default: 5 } }, required: ["query"] }, annotations: { readOnlyHint: false, untrustedContentHint: true },
+      execute: (input: SearchLostItemsInput, context) => { abort(context); if (!input.query?.trim()) return { error: { code: "validation_error", message: "query must be a non-empty string." } }; const caseId = requestedCaseId(input); if (typeof caseId === "object") return caseId; const current = caseId ? requireCase(store, callbacks, caseId) : null; if (caseId && !current) return staleCaseError(caseId); const incoming = cluesFromSearch(input); const clues = current ? mergeSearchClues(current.clues, incoming) : incoming; const description = descriptionFromClues(clues); const searchInput: SearchInput = { query: [description.query, ...(description.colors ?? []), ...(description.features ?? [])].filter(Boolean).join(" "), category: description.category, location: description.location, date: description.date }; const ranked = selectRelevantResults(rankItems(items, searchInput, { strictFilters: false })); const limit = Math.max(1, Math.min(10, input.limit ?? 5)); const candidateIds = ranked.map((result) => result.item.id); const session = current ? investigationReducer(current, { type: "search", sessionId: current.id, clues: incoming, candidateIds, label: input.query, createdAt: now() })! : createInvestigationSession({ id: createId(), originalQuery: input.query, clues, candidateIds, createdAt: now() }); abort(context); publishSession(store, callbacks, session); callbacks.onSearch(searchInput, ranked.slice(0, limit)); callbacks.onActivity({ tool: "search_lost_items", message: `Ranked ${ranked.length} candidate${ranked.length === 1 ? "" : "s"}`, state: "done" }); return { case_id: session.id, session_id: session.id, locale: input.locale ?? callbacks.getActiveCase?.()?.locale ?? "en", query: input.query, candidate_count: ranked.length, status: session.status, rank_changes: compactRankChanges(current?.candidateIds ?? [], candidateIds), results: ranked.slice(0, limit).map((result) => ({ item_id: result.item.id, name: result.item.name, score: result.confidence, match_strength: result.confidence >= .85 ? "strong" : result.confidence >= .65 ? "possible" : result.confidence >= .4 ? "weak" : "unlikely", matched_terms: result.matched_terms, matched_fields: result.matched_fields })) }; },
     },
     {
-      name: "get_item_details", title: "Get item details", description: "Retrieve complete structured metadata for one catalog item and bring its card into view.",
-      inputSchema: { ...commonSchema, properties: { item_id: { type: "string", pattern: "^LF-[0-9]{3}$" } }, required: ["item_id"] }, annotations: { readOnlyHint: true, untrustedContentHint: false },
-      execute: ({ item_id }: { item_id: string }, context) => { context?.signal?.throwIfAborted(); const item = items.find((candidate) => candidate.id === item_id); if (!item) return { error: { code: "item_not_found", message: "Item not found." } }; callbacks.onHighlight(item.id); callbacks.onActivity({ tool: "get_item_details", message: `Inspecting ${item.id}`, state: "done" }); return item; },
+      name: "get_item_details", title: "Get item details", description: "Retrieve catalog metadata in the requested locale and bring its visible card into view.",
+      inputSchema: { ...commonSchema, properties: { item_id: { type: "string", pattern: "^LF-[0-9]{3}$" }, ...localeProperty }, required: ["item_id"] }, annotations: { readOnlyHint: true, untrustedContentHint: true },
+      execute: ({ item_id, locale = "en" }: { item_id: string; locale?: SupportedLocale }, context) => { abort(context); const item = items.find((candidate) => candidate.id === item_id); if (!item) return { error: { code: "item_not_found", message: "Item not found." } }; const localized = itemText(item, locale); abort(context); callbacks.onHighlight(item.id); callbacks.onActivity({ tool: "get_item_details", message: `Inspecting ${item.id}`, state: "done" }); return { id: item.id, ...localized, found_date: item.found_date, status: item.status, image: item.image }; },
     },
     {
-      name: "get_search_facets", title: "Get useful search clues", description: "Analyze the active investigation candidates and suggest up to three deterministic, discriminating follow-up questions.",
-      inputSchema: { ...commonSchema, properties: { session_id: { type: "string" } }, required: ["session_id"] }, annotations: { readOnlyHint: true, untrustedContentHint: false },
-      execute: ({ session_id }: { session_id: string }, context) => { context?.signal?.throwIfAborted(); const session = requireSession(store, session_id); if (!session) return staleSessionError(session_id); const candidates = session.candidateIds.map((id) => items.find((item) => item.id === id)).filter((item): item is LostItem => Boolean(item)); const useful = getSearchFacets(candidates, session.clues); const status = candidates.length === 0 ? "no_candidates" : candidates.length === 1 ? "ready_to_compare" : "needs_clue"; const label = candidates.length === 0 ? "No candidates · broaden the search" : useful[0] ? `Useful clue · ${useful[0].field}` : "Ready to compare evidence"; publishSession(store, callbacks, { ...session, searches: [...session.searches, createSearchStep(label, session.candidateIds, now())] }); callbacks.onActivity({ tool: "get_search_facets", message: candidates.length ? `${useful.length} useful clue${useful.length === 1 ? "" : "s"}` : "Broaden or remove a clue", state: "done" }); return { session_id, candidate_count: candidates.length, status, useful_clues: useful, ...(candidates.length === 0 ? { recovery_guidance: "Broaden the search or remove a restrictive clue." } : {}) }; },
+      name: "get_search_facets", title: "Get useful search clues", description: "Read a named case and suggest deterministic follow-up questions that exclude clues already supplied.",
+      inputSchema: { ...commonSchema, properties: { ...caseProperties, ...localeProperty } }, annotations: { readOnlyHint: true, untrustedContentHint: true },
+      execute: (input: { case_id?: string; session_id?: string; locale?: SupportedLocale }, context) => { abort(context); const caseId = requestedCaseId(input); if (!caseId || typeof caseId === "object") return typeof caseId === "object" ? caseId : staleCaseError(""); const session = requireCase(store, callbacks, caseId); if (!session) return staleCaseError(caseId); const candidates = session.candidateIds.map((id) => items.find((item) => item.id === id)).filter((item): item is LostItem => Boolean(item)); const useful = localizedFacets(getSearchFacets(candidates, session.clues), input.locale); const status = candidates.length === 0 ? "no_candidates" : candidates.length === 1 ? "ready_to_compare" : "needs_clue"; abort(context); callbacks.onActivity({ tool: "get_search_facets", message: candidates.length ? `${useful.length} useful clue${useful.length === 1 ? "" : "s"}` : "Broaden or remove a clue", state: "done" }); return { case_id: caseId, candidate_count: candidates.length, status, useful_clues: useful, ...(candidates.length === 0 ? { recovery_guidance: input.locale === "zh-TW" ? "請放寬搜尋條件或移除限制性線索。" : "Broaden the search or remove a restrictive clue." } : {}) }; },
     },
     {
-      name: "compare_items", title: "Compare lost items", description: "Rank named candidates using positive, unknown, and contradiction evidence from an active investigation or explicit clues.",
-      inputSchema: { ...commonSchema, properties: { session_id: { type: "string" }, item_ids: { type: "array", items: { type: "string", pattern: "^LF-[0-9]{3}$" }, minItems: 1 }, known_clues: { ...commonSchema, properties: { query: { type: "string" }, category: { type: "string" }, colors: { type: "array", items: { type: "string" } }, features: { type: "array", items: { type: "string" } }, location: { type: "string" }, date: { type: "string" } } }, negative_clues: { type: "array", items: { type: "string" } } }, required: ["item_ids"] }, annotations: { readOnlyHint: true, untrustedContentHint: false },
-      execute: (input: CompareItemsInput, context) => { context?.signal?.throwIfAborted(); const session = input.session_id ? requireSession(store, input.session_id) : null; if (input.session_id && !session) return staleSessionError(input.session_id); const clues = mergeSearchClues(session?.clues ?? [], cluesFromKnown(input.known_clues, input.negative_clues)); const candidates = items.filter((item) => input.item_ids.includes(item.id)); const [best, ...alternatives] = compareItemsWithClues(candidates, clues); if (!best) return { error: { code: "no_candidates", message: "No valid candidate items." } }; if (session) { const compared = investigationReducer(session, { type: "best_match", sessionId: session.id, itemId: best.item.id })!; publishSession(store, callbacks, { ...compared, searches: [...compared.searches, createSearchStep(`Compared evidence · ${best.item.id}`, input.item_ids, now())] }); } callbacks.onHighlight(best.item.id); callbacks.onActivity({ tool: "compare_items", message: `${Math.round(best.score * 100)}% match · ${best.item.id}`, state: "done" }); return { best_match: matchShape(best), alternatives: alternatives.map(matchShape) }; },
+      name: "compare_items", title: "Compare lost items", description: "Rank named candidates using a named case plus optional explicit evidence.",
+      inputSchema: { ...commonSchema, properties: { ...caseProperties, item_ids: { type: "array", items: { type: "string", pattern: "^LF-[0-9]{3}$" }, minItems: 1 }, known_clues: knownCluesSchema, negative_clues: { type: "array", items: { type: "string" } } }, required: ["item_ids"] }, annotations: { readOnlyHint: false, untrustedContentHint: true },
+      execute: (input: CompareItemsInput, context) => { abort(context); const caseId = requestedCaseId(input); if (typeof caseId === "object") return caseId; const session = caseId ? requireCase(store, callbacks, caseId) : null; if (caseId && !session) return staleCaseError(caseId); const clues = mergeSearchClues(session?.clues ?? [], cluesFromKnown(input.known_clues, input.negative_clues)); const candidates = items.filter((item) => input.item_ids.includes(item.id)); const ranked = compareItemsWithClues(candidates, clues); const [best, ...alternatives] = ranked; if (!best) return { error: { code: "no_candidates", message: "No valid candidate items." } }; const updated = session ? { ...investigationReducer(session, { type: "best_match", sessionId: session.id, itemId: best.item.id })!, searches: [...session.searches, createSearchStep(`Compared evidence · ${best.item.id}`, input.item_ids, now())] } : null; const previousSnapshot = callbacks.getActiveCase?.()?.scoreSnapshots.at(-1); const currentSnapshot = { stepId: "webmcp-compare", scores: Object.fromEntries(ranked.map((result) => [result.item.id, result.score])), breakdowns: Object.fromEntries(ranked.map((result) => [result.item.id, result.score_breakdown])) }; const rankChanges = previousSnapshot ? calculateRankDeltas(previousSnapshot, currentSnapshot, session?.candidateIds ?? input.item_ids, ranked.map((result) => result.item.id)) : compactRankChanges(session?.candidateIds ?? input.item_ids, ranked.map((result) => result.item.id)); abort(context); if (updated) publishSession(store, callbacks, updated); callbacks.onEvidence?.(best); callbacks.onHighlight(best.item.id); callbacks.onActivity({ tool: "compare_items", message: `${Math.round(best.score * 100)}% match · ${best.item.id}`, state: "done" }); return { case_id: caseId, best_match: matchShape(best, 1), alternatives: alternatives.map((result, index) => matchShape(result, index + 2)), rank_changes: rankChanges }; },
     },
     {
-      name: "get_match_evidence", title: "Get match evidence", description: "Explain one candidate using the exact positive and contradiction score breakdown used by ranking. Does not open a claim.",
-      inputSchema: { ...commonSchema, properties: { item_id: { type: "string", pattern: "^LF-[0-9]{3}$" }, session_id: { type: "string" }, known_clues: { ...commonSchema, properties: { query: { type: "string" }, category: { type: "string" }, colors: { type: "array", items: { type: "string" } }, features: { type: "array", items: { type: "string" } }, location: { type: "string" }, date: { type: "string" } } }, negative_clues: { type: "array", items: { type: "string" } } }, required: ["item_id"] }, annotations: { readOnlyHint: true, untrustedContentHint: false },
-      execute: (input: { item_id: string; session_id?: string; known_clues?: KnownCluesInput; negative_clues?: string[] }, context) => { context?.signal?.throwIfAborted(); const item = items.find((candidate) => candidate.id === input.item_id); if (!item) return { error: { code: "item_not_found", message: "Item not found." } }; const session = input.session_id ? requireSession(store, input.session_id) : null; if (input.session_id && !session) return staleSessionError(input.session_id); const clues = mergeSearchClues(session?.clues ?? [], cluesFromKnown(input.known_clues, input.negative_clues)); const result = compareItemWithClues(item, clues); if (session) publishSession(store, callbacks, { ...session, bestMatch: item.id, status: "possible_match", searches: [...session.searches, createSearchStep(`Evidence for ${item.id}`, [item.id], now())] }); callbacks.onEvidence?.(result); callbacks.onHighlight(item.id); callbacks.onActivity({ tool: "get_match_evidence", message: `${result.match_strength} · ${item.id}`, state: "done" }); return { item_id: item.id, summary: { strength: result.match_strength, score: result.score }, evidence: { matched: result.matched, unknown: result.unknown, contradictions: result.contradictions }, score_breakdown: result.score_breakdown.filter((entry) => entry.type !== "unknown") }; },
+      name: "get_match_evidence", title: "Get match evidence", description: "Explain one candidate using the exact score breakdown and update the visible Evidence Card without changing its score.",
+      inputSchema: { ...commonSchema, properties: { ...caseProperties, item_id: { type: "string", pattern: "^LF-[0-9]{3}$" }, known_clues: knownCluesSchema, negative_clues: { type: "array", items: { type: "string" } } }, required: ["item_id"] }, annotations: { readOnlyHint: false, untrustedContentHint: true },
+      execute: (input: { item_id: string; case_id?: string; session_id?: string; known_clues?: KnownCluesInput; negative_clues?: string[] }, context) => { abort(context); const item = items.find((candidate) => candidate.id === input.item_id); if (!item) return { error: { code: "item_not_found", message: "Item not found." } }; const caseId = requestedCaseId(input); if (typeof caseId === "object") return caseId; const session = caseId ? requireCase(store, callbacks, caseId) : null; if (caseId && !session) return staleCaseError(caseId); const clues = mergeSearchClues(session?.clues ?? [], cluesFromKnown(input.known_clues, input.negative_clues)); const result = compareItemWithClues(item, clues); const updated = session ? { ...session, bestMatch: item.id, status: "possible_match" as const, searches: [...session.searches, createSearchStep(`Evidence for ${item.id}`, [item.id], now())] } : null; const previousBreakdown = callbacks.getActiveCase?.()?.scoreSnapshots.at(-1)?.breakdowns[item.id] ?? []; abort(context); if (updated) publishSession(store, callbacks, updated); callbacks.onEvidence?.(result); callbacks.onHighlight(item.id); callbacks.onActivity({ tool: "get_match_evidence", message: `${result.match_strength} · ${item.id}`, state: "done" }); return { case_id: caseId, item_id: item.id, summary: { strength: result.match_strength, score: result.score }, evidence: { matched: result.matched, unknown: result.unknown, contradictions: result.contradictions }, score_breakdown: result.score_breakdown.filter((entry) => entry.type !== "unknown"), changed_evidence: changedEvidence(previousBreakdown, result.score_breakdown) }; },
     },
     {
-      name: "request_claim", title: "Request claim confirmation", description: "Open the human confirmation step for one possible match. The agent cannot complete a claim without the user.",
-      inputSchema: { ...commonSchema, properties: { item_id: { type: "string", pattern: "^LF-[0-9]{3}$" } }, required: ["item_id"] }, annotations: { readOnlyHint: false, untrustedContentHint: false },
-      execute: ({ item_id }: { item_id: string }, context) => { context?.signal?.throwIfAborted(); const item = items.find((candidate) => candidate.id === item_id); if (!item) return { error: { code: "item_not_found", message: "Item not found." } }; const session = store.get(); if (session) { const confirmation = investigationReducer(session, { type: "request_confirmation", sessionId: session.id, itemId: item_id })!; publishSession(store, callbacks, { ...confirmation, searches: [...confirmation.searches, createSearchStep("Waiting for you · Human confirmation", [item_id], now())] }); } callbacks.onClaim(item); callbacks.onActivity({ tool: "request_claim", message: "Waiting for human", state: "active" }); return { status: "confirmation_required", item_id, message: "Human confirmation is required to claim this item." }; },
+      name: "request_claim", title: "Request claim confirmation", description: "Open human review. The agent cannot complete or submit the claim.",
+      inputSchema: { ...commonSchema, properties: { ...caseProperties, item_id: { type: "string", pattern: "^LF-[0-9]{3}$" } }, required: ["item_id"] }, annotations: { readOnlyHint: false, untrustedContentHint: true },
+      execute: (input: { item_id: string; case_id?: string; session_id?: string }, context) => { abort(context); const item = items.find((candidate) => candidate.id === input.item_id); if (!item) return { error: { code: "item_not_found", message: "Item not found." } }; const caseId = requestedCaseId(input); if (typeof caseId === "object") return caseId; const session = caseId ? requireCase(store, callbacks, caseId) : activeSession(store, callbacks); if (caseId && !session) return staleCaseError(caseId); const confirmation = session ? { ...investigationReducer(session, { type: "request_confirmation", sessionId: session.id, itemId: input.item_id })!, searches: [...session.searches, createSearchStep("Waiting for you · Human confirmation", [input.item_id], now())] } : null; abort(context); if (confirmation) publishSession(store, callbacks, confirmation); callbacks.onClaim(item); callbacks.onActivity({ tool: "request_claim", message: "Waiting for human", state: "active" }); return { case_id: confirmation?.id, status: "confirmation_required", item_id: input.item_id, message: "Human confirmation is required. No claim has been submitted." }; },
+    },
+    {
+      name: "get_active_case", title: "Get active case", description: "Return a compact summary of the visible or restored case without exposing browser storage.",
+      inputSchema: { ...commonSchema, properties: { case_id: { type: "string" }, ...localeProperty } }, annotations: { readOnlyHint: true, untrustedContentHint: true },
+      execute: (input: { case_id?: string; locale?: SupportedLocale }, context) => { abort(context); const casefile = callbacks.getActiveCase?.(); const session = activeSession(store, callbacks); const activeId = casefile?.id ?? session?.id; if (!activeId || (input.case_id && input.case_id !== activeId)) return staleCaseError(input.case_id ?? "active"); const latest = casefile?.steps.at(-1) ?? session?.searches.at(-1); return { case_id: activeId, status: casefile?.status ?? session!.status, locale: input.locale ?? casefile?.locale ?? "en", original_description: casefile?.originalDescription ?? session!.originalQuery, clues: casefile?.clues ?? session!.clues, candidate_count: casefile?.candidateIds.length ?? session!.candidateIds.length, best_match: casefile?.bestMatch ?? session!.bestMatch, latest_step: latest }; },
     },
   ];
 }
